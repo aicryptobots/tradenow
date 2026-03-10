@@ -5776,48 +5776,81 @@
             document.getElementById('alertToggle').classList.add('active');
         };
     </script>
-   <script>
-// Right click disable
-document.addEventListener('contextmenu', event => event.preventDefault());
+   <!-- PROTECTION SCRIPT START -->
 
-// Disable text selection
-document.onselectstart = function () {
-    return false;
-};
+<style>
+body{
+user-select:none;
+-webkit-user-select:none;
+-moz-user-select:none;
+}
+</style>
 
-// Disable copy
-document.addEventListener('copy', function(e) {
-    e.preventDefault();
+<script>
+
+// Disable Right Click
+document.addEventListener("contextmenu",function(e){
+e.preventDefault();
 });
 
-// Disable inspect and view source shortcuts
-document.onkeydown = function(e) {
+// Disable Copy
+document.addEventListener("copy",function(e){
+e.preventDefault();
+});
 
-    // F12
-    if (e.keyCode == 123) {
-        return false;
-    }
+// Disable Drag
+document.addEventListener("dragstart",function(e){
+e.preventDefault();
+});
 
-    // Ctrl+Shift+I
-    if (e.ctrlKey && e.shiftKey && e.keyCode == 73) {
-        return false;
-    }
+// Disable Keyboard Shortcuts
+document.onkeydown=function(e){
 
-    // Ctrl+Shift+J
-    if (e.ctrlKey && e.shiftKey && e.keyCode == 74) {
-        return false;
-    }
+// F12
+if(e.keyCode==123){
+return false;
+}
 
-    // Ctrl+U
-    if (e.ctrlKey && e.keyCode == 85) {
-        return false;
-    }
+// Ctrl+U
+if(e.ctrlKey && e.keyCode==85){
+return false;
+}
 
-    // Ctrl+C
-    if (e.ctrlKey && e.keyCode == 67) {
-        return false;
-    }
+// Ctrl+C
+if(e.ctrlKey && e.keyCode==67){
+return false;
+}
+
+// Ctrl+Shift+I
+if(e.ctrlKey && e.shiftKey && e.keyCode==73){
+return false;
+}
+
+// Ctrl+Shift+J
+if(e.ctrlKey && e.shiftKey && e.keyCode==74){
+return false;
+}
+
+// Ctrl+S
+if(e.ctrlKey && e.keyCode==83){
+return false;
+}
+
 };
+
+// DevTools Detect
+setInterval(function(){
+if(window.outerWidth-window.innerWidth>160 || window.outerHeight-window.innerHeight>160){
+document.body.innerHTML="Developer Tools Detected";
+}
+},1000);
+
+// Console Warning
+console.log("%cSTOP!","color:red;font-size:40px");
+console.log("This website is protected.");
+
 </script>
+
+<!-- PROTECTION SCRIPT END -->
 </body>
 </html>
