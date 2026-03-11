@@ -4,7 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>PRIME AI TRADING BOT | ADMIN PANEL</title>
-    
+    <!-- ================ ULTRA LIGHT SECURITY ================ -->
+<style>
+* {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+input, textarea {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+}
+</style>
+
+<script>
+// Ultra light security - no lag
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+    if (e.key === 'F12' || (e.ctrlKey && e.key === 'u')) e.preventDefault();
+});
+</script>
+<!-- ================ END ================ -->
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/axios@1.6.2/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.0/build/global/luxon.min.js"></script>
@@ -5768,89 +5791,29 @@
             document.getElementById('alertToggle').classList.add('active');
         };
     </script>
-   <!-- PROTECTION SCRIPT START -->
-
+  <!-- ================ ULTRA LIGHT SECURITY ================ -->
 <style>
-body{
-user-select:none;
--webkit-user-select:none;
--moz-user-select:none;
+* {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+input, textarea {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
 }
 </style>
 
 <script>
-
-// Disable Right Click
-document.addEventListener("contextmenu",function(e){
-e.preventDefault();
+// Ultra light security - no lag
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+    if (e.key === 'F12' || (e.ctrlKey && e.key === 'u')) e.preventDefault();
 });
-
-// Disable Copy
-document.addEventListener("copy",function(e){
-e.preventDefault();
-});
-
-// Disable Drag
-document.addEventListener("dragstart",function(e){
-e.preventDefault();
-});
-
-// Disable Keyboard Shortcuts
-document.onkeydown=function(e){
-
-// F12
-if(e.keyCode==123){
-return false;
-}
-
-// Ctrl+U
-if(e.ctrlKey && e.keyCode==85){
-return false;
-}
-
-// Ctrl+C
-if(e.ctrlKey && e.keyCode==67){
-return false;
-}
-
-// Ctrl+Shift+I
-if(e.ctrlKey && e.shiftKey && e.keyCode==73){
-return false;
-}
-
-// Ctrl+Shift+J
-if(e.ctrlKey && e.shiftKey && e.keyCode==74){
-return false;
-}
-
-// Ctrl+S
-if(e.ctrlKey && e.keyCode==83){
-return false;
-}
-
-};
-
-// DevTools Detect
-setInterval(function(){
-if(window.outerWidth-window.innerWidth>160 || window.outerHeight-window.innerHeight>160){
-document.body.innerHTML="Developer Tools Detected";
-}
-},1000);
-
-// Console Warning
-console.log("%cSTOP!","color:red;font-size:40px");
-console.log("This website is protected.");
-
 </script>
-
-<!-- PROTECTION SCRIPT END -->
-        
-<script>
-document.addEventListener("contextmenu",e=>e.preventDefault());
-document.onkeydown=function(e){
-if(e.keyCode==123)return false;
-if(e.ctrlKey&&e.keyCode==85)return false;
-};
-</script>
+<!-- ================ END ================ -->
 </body>
 </html>
