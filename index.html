@@ -6160,54 +6160,51 @@
             updateMarginInfo();
             document.getElementById('alertToggle').classList.add('active');
         };
-// ==================== AUTO TRADING BOT (Main Site Integration) ====================
 (function() {
-    // Settings
+    // ========== সেটিংস ==========
     let autoEnabled = localStorage.getItem('autoTradeEnabled') === 'true';
     let interval = null;
-    let lastTradeTime = 0;
-    const COOLDOWN_MS = 60000; // 1 minute
+    let lastTrade = 0;
+    const COOLDOWN = 60000;
     let audioEnabled = localStorage.getItem('audioAlertsEnabled') === 'true';
-    const TRADE_AMOUNT = 500;   // $500 per trade (margin)
+    const TRADE_AMOUNT = 500;
 
-    // Read recommendation signal from the Ultimate box
-    function getRecommendationSignal() {
-        let elem = document.getElementById('finalSignal');
-        if (elem) {
-            let text = elem.innerText.trim().toUpperCase();
-            if (text === 'BUY') return 'buy';
-            if (text === 'SELL') return 'sell';
+    // ========== সিগন্যাল, কনফিডেন্স, প্রাইস পড়া ==========
+    function getSignal() {
+        let el = document.getElementById('finalSignal');
+        if (el) {
+            let txt = el.innerText.trim().toUpperCase();
+            if (txt === 'BUY') return 'buy';
+            if (txt === 'SELL') return 'sell';
         }
         let div = document.querySelector('.final-signal .signal-text');
         if (div) {
-            let text = div.innerText.trim().toUpperCase();
-            if (text === 'BUY') return 'buy';
-            if (text === 'SELL') return 'sell';
+            let txt = div.innerText.trim().toUpperCase();
+            if (txt === 'BUY') return 'buy';
+            if (txt === 'SELL') return 'sell';
         }
         return null;
     }
 
-    // Read confidence percentage
-    function getRecommendationConfidence() {
-        let elem = document.getElementById('finalConfidence');
-        if (elem) return parseFloat(elem.innerText) || 0;
+    function getConfidence() {
+        let el = document.getElementById('finalConfidence');
+        if (el) return parseFloat(el.innerText) || 0;
         return 0;
     }
 
-    // Read current price (for display in notifications)
-    function getCurrentPrice() {
-        let elem = document.getElementById('currentPriceLarge');
-        if (elem) return parseFloat(elem.innerText.replace('$', '').replace(',', '')) || 0;
+    function getPrice() {
+        let el = document.getElementById('currentPriceLarge');
+        if (el) return parseFloat(el.innerText.replace('$', '').replace(',', '')) || 0;
         return 0;
     }
 
-    // Audio alert (5 times)
-    function speakMessage(message) {
+    // ========== অডিও অ্যালার্ট ==========
+    function speakMessage(msg) {
         if (!audioEnabled) return;
         let count = 0;
         function speak() {
             if (!audioEnabled) return;
-            let utterance = new SpeechSynthesisUtterance(message);
+            let utterance = new SpeechSynthesisUtterance(msg);
             utterance.rate = 0.7;
             window.speechSynthesis.cancel();
             window.speechSynthesis.speak(utterance);
@@ -6217,10 +6214,11 @@
         speak();
     }
 
-    // Non-intrusive toast notification (auto-removes after 3 seconds)
-    function showToast(message, type = 'info') {
+    // ========== নোটিফিকেশন (পপআপ ছাড়া) ==========
+    function showToast(msg, type = 'info') {
+        // সংক্ষিপ্ত টোস্ট নোটিফিকেশন যা ২ সেকেন্ড পর মিলিয়ে যায়
         let toast = document.createElement('div');
-        toast.innerText = message;
+        toast.innerText = msg;
         toast.style.position = 'fixed';
         toast.style.bottom = '20px';
         toast.style.right = '20px';
@@ -6235,11 +6233,10 @@
         setTimeout(() => toast.remove(), 3000);
     }
 
-    // Main auto trade check
+    // ========== ট্রেড চেক ও এক্সিকিউট ==========
     async function checkAndTrade() {
         if (!autoEnabled) return;
-
-        // Check if there is already an open position (using your existing user data)
+        // ওপেন পজিশন চেক
         if (window.currentUser && window.usersData && window.usersData[window.currentUser]) {
             let positions = window.usersData[window.currentUser].tradingData.positions;
             if (positions && positions.length > 0) {
@@ -6247,26 +6244,21 @@
                 return;
             }
         }
-
-        let signal = getRecommendationSignal();
-        let confidence = getRecommendationConfidence();
-        let price = getCurrentPrice();
+        let signal = getSignal();
+        let conf = getConfidence();
+        let price = getPrice();
         let now = Date.now();
-
-        if (now - lastTradeTime < COOLDOWN_MS) {
-            // Still in cooldown – silent
+        if (now - lastTrade < COOLDOWN) {
+            // কুলডাউন থাকলে কিছু করবেন না, নীরব থাকুন
             return;
         }
-
-        if (signal && confidence >= 85) {
-            // Set the trade amount in your existing input field (if present)
+        if (signal && conf >= 85) {
             let amountInput = document.getElementById('tradeAmount');
             if (amountInput) amountInput.value = TRADE_AMOUNT;
-
             if (typeof window.executeTrade === 'function') {
                 window.executeTrade(signal);
-                lastTradeTime = now;
-                showToast(`✅ AUTO ${signal.toUpperCase()} at $${price} (Conf: ${confidence}%)`, 'success');
+                lastTrade = now;
+                showToast(`✅ AUTO ${signal.toUpperCase()} at $${price} (Conf: ${conf}%)`, 'success');
                 speakMessage(signal === 'buy' ? 'Right time open buy trade' : 'Right time open sell trade');
             } else {
                 console.error("executeTrade function not found!");
@@ -6274,14 +6266,14 @@
         }
     }
 
-    // Add control buttons below the recommendation box
+    // ========== বাটন যোগ করা (শুধু ট্রেড অ্যাকশন ফুটারে) ==========
     function addControls() {
         let footer = document.querySelector('.ultimate-rec-footer .trade-actions');
         if (!footer) {
             setTimeout(addControls, 500);
             return;
         }
-        if (document.getElementById('autoTradePanel')) return; // already added
+        if (document.getElementById('autoTradePanel')) return; // ইতিমধ্যে যোগ হয়ে থাকলে
 
         let panel = document.createElement('div');
         panel.id = 'autoTradePanel';
@@ -6290,7 +6282,6 @@
         panel.style.marginTop = '10px';
         panel.style.alignItems = 'center';
 
-        // Start / Stop button
         let startStopBtn = document.createElement('button');
         startStopBtn.id = 'autoStartStop';
         startStopBtn.textContent = autoEnabled ? '⏸️ Stop Auto Trading' : '🤖 Start Auto Trading';
@@ -6316,7 +6307,6 @@
             }
         };
 
-        // Audio toggle button
         let audioBtn = document.createElement('button');
         audioBtn.textContent = audioEnabled ? '🔊 Audio ON' : '🔇 Audio OFF';
         audioBtn.style.background = audioEnabled ? '#22C55E' : '#6B7280';
@@ -6338,7 +6328,7 @@
         footer.appendChild(panel);
     }
 
-    // Initialize on page load
+    // ========== শুরু করা ==========
     window.addEventListener('load', () => {
         addControls();
         if (autoEnabled) {
