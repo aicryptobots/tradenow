@@ -6161,7 +6161,167 @@
             document.getElementById('alertToggle').classList.add('active');
         };
 
-    </script>
+        <script>
+// ========== অটো ট্রেডিং বট (মূল সাইটের রেকমেন্ডেশন বক্স অনুযায়ী) ==========
+(function(){
+    let autoEnabled = localStorage.getItem('autoTradeEnabled') === 'true';
+    let interval = null;
+    let lastTrade = 0;
+    const COOLDOWN = 60000;
+    let audioEnabled = localStorage.getItem('audioAlertsEnabled') === 'true';
+    const TRADE_AMOUNT = 500;
+    const LEVERAGE = 5;
+
+    function getSignal() {
+        let el = document.getElementById('finalSignal');
+        if(el) {
+            let txt = el.innerText.trim().toUpperCase();
+            if(txt === 'BUY') return 'buy';
+            if(txt === 'SELL') return 'sell';
+        }
+        let div = document.querySelector('.final-signal .signal-text');
+        if(div) {
+            let txt = div.innerText.trim().toUpperCase();
+            if(txt === 'BUY') return 'buy';
+            if(txt === 'SELL') return 'sell';
+        }
+        return null;
+    }
+
+    function getConfidence() {
+        let el = document.getElementById('finalConfidence');
+        if(el) return parseFloat(el.innerText) || 0;
+        return 0;
+    }
+
+    function getPrice() {
+        let el = document.getElementById('currentPriceLarge');
+        if(el) return parseFloat(el.innerText.replace('$','').replace(',','')) || 0;
+        return 0;
+    }
+
+    function speak(msg) {
+        if(!audioEnabled) return;
+        let c=0;
+        function sp(){ if(!audioEnabled) return; let u=new SpeechSynthesisUtterance(msg); u.rate=0.7; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); c++; if(c<5) setTimeout(sp,1800); }
+        sp();
+    }
+
+    function showStatus(m, type='info') {
+        let div = document.getElementById('autoTradeStatus');
+        if(!div){
+            div = document.createElement('div');
+            div.id = 'autoTradeStatus';
+            div.style.position = 'fixed';
+            div.style.bottom = '20px';
+            div.style.right = '20px';
+            div.style.background = '#1a1f2a';
+            div.style.padding = '8px 15px';
+            div.style.borderRadius = '12px';
+            div.style.border = '1px solid #3b82f6';
+            div.style.fontSize = '0.8rem';
+            div.style.zIndex = '9999';
+            document.body.appendChild(div);
+        }
+        div.innerHTML = m;
+        div.style.color = type==='success'?'#22c55e':(type==='error'?'#ef4444':'#f59e0b');
+        setTimeout(()=>{ if(div.innerHTML===m) div.style.opacity='0.5'; },4000);
+    }
+
+    async function checkTrade(){
+        if(!autoEnabled) return;
+        if(window.currentUser && window.usersData && window.usersData[window.currentUser]){
+            let pos = window.usersData[window.currentUser].tradingData.positions;
+            if(pos && pos.length>0){
+                showStatus("📌 Open position exists - waiting",'info');
+                return;
+            }
+        }
+        let signal = getSignal();
+        let conf = getConfidence();
+        let price = getPrice();
+        let now = Date.now();
+        if(now - lastTrade < COOLDOWN){
+            showStatus(`Cooldown: ${Math.ceil((COOLDOWN-(now-lastTrade))/1000)}s`,'info');
+            return;
+        }
+        if(signal && conf >= 85){
+            let amountInput = document.getElementById('tradeAmount');
+            if(amountInput) amountInput.value = TRADE_AMOUNT;
+            if(typeof window.executeTrade === 'function'){
+                window.executeTrade(signal);
+                lastTrade = now;
+                showStatus(`✅ AUTO ${signal.toUpperCase()} at $${price} (Conf: ${conf}%)`,'success');
+                speak(signal==='buy'?'Right time open buy trade':'Right time open sell trade');
+            } else {
+                console.error("executeTrade not found");
+            }
+        } else {
+            showStatus(`No trade: Signal=${signal||'NONE'}, Conf=${conf}%`,'info');
+        }
+    }
+
+    function addControls(){
+        let footer = document.querySelector('.ultimate-rec-footer .trade-actions');
+        if(!footer){ setTimeout(addControls,500); return; }
+        if(document.getElementById('autoTradePanel')) return;
+        let panel = document.createElement('div');
+        panel.id = 'autoTradePanel';
+        panel.style.display = 'flex';
+        panel.style.gap = '10px';
+        panel.style.marginTop = '15px';
+        let btn = document.createElement('button');
+        btn.id = 'autoStartStop';
+        btn.textContent = autoEnabled ? '⏸️ Stop Auto Trading' : '🤖 Start Auto Trading';
+        btn.style.background = 'linear-gradient(135deg,#3B82F6,#8B5CF6)';
+        btn.style.color = 'white';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '8px';
+        btn.style.padding = '8px 16px';
+        btn.style.cursor = 'pointer';
+        btn.onclick = () => {
+            autoEnabled = !autoEnabled;
+            localStorage.setItem('autoTradeEnabled', autoEnabled);
+            btn.textContent = autoEnabled ? '⏸️ Stop Auto Trading' : '🤖 Start Auto Trading';
+            if(autoEnabled){
+                if(interval) clearInterval(interval);
+                interval = setInterval(checkTrade,10000);
+                checkTrade();
+                showStatus('✅ Auto trading ENABLED','success');
+            } else {
+                if(interval) clearInterval(interval);
+                interval = null;
+                showStatus('⏹️ Auto trading DISABLED','info');
+            }
+        };
+        let audioBtn = document.createElement('button');
+        audioBtn.textContent = audioEnabled ? '🔊 Audio ON' : '🔇 Audio OFF';
+        audioBtn.style.background = audioEnabled ? '#22C55E' : '#6B7280';
+        audioBtn.style.border = 'none';
+        audioBtn.style.borderRadius = '8px';
+        audioBtn.style.padding = '8px 16px';
+        audioBtn.style.cursor = 'pointer';
+        audioBtn.onclick = () => {
+            audioEnabled = !audioEnabled;
+            localStorage.setItem('audioAlertsEnabled', audioEnabled);
+            audioBtn.textContent = audioEnabled ? '🔊 Audio ON' : '🔇 Audio OFF';
+            audioBtn.style.background = audioEnabled ? '#22C55E' : '#6B7280';
+            showStatus(audioEnabled ? 'Audio alerts enabled' : 'Audio alerts disabled','info');
+        };
+        panel.appendChild(btn);
+        panel.appendChild(audioBtn);
+        footer.appendChild(panel);
+    }
+
+    window.addEventListener('load',()=>{
+        addControls();
+        if(autoEnabled){
+            interval = setInterval(checkTrade,10000);
+            setTimeout(checkTrade,2000);
+        }
+    });
+})();
+</script>
     
 </body>
 </html>
