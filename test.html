@@ -7082,138 +7082,187 @@ window.autoClosePositions = function() {
     window.addEventListener('load', addHistoryButton);
 })();
 
-// ==================== OPTIMIZED CHART & DATA FETCH ====================
-let chart = null;
-let candleSeries = null;
-let currentData = [];
-let currentPrice = 67000;
-let currentSymbol = 'BTCUSDT';
-let fetchInterval = null;
-let isFetching = false;
-
-// Initialize chart with error handling
-function initChart() {
-    const container = document.getElementById('tradingview_chart');
-    if (!container) {
-        console.error('Chart container not found');
-        return false;
+// ==================== ENHANCED PATTERN SIGNAL WITH TP/SL & CONFIDENCE ====================
+(function() {
+    // ---------- 1. Pattern definitions with confidence weights and TP/SL logic ----------
+    const patternDatabase = {
+        // BUY patterns (22)
+        "Hammer": { action: "BUY", baseConfidence: 75, tpMultiplier: [1.02, 1.04, 1.06], slMultiplier: 0.985 },
+        "Bullish Engulfing": { action: "BUY", baseConfidence: 85, tpMultiplier: [1.025, 1.05, 1.075], slMultiplier: 0.98 },
+        "Inverted Hammer": { action: "BUY", baseConfidence: 70, tpMultiplier: [1.015, 1.03, 1.045], slMultiplier: 0.99 },
+        "Three White Soldiers": { action: "BUY", baseConfidence: 90, tpMultiplier: [1.03, 1.06, 1.09], slMultiplier: 0.975 },
+        "Morning Star": { action: "BUY", baseConfidence: 88, tpMultiplier: [1.02, 1.04, 1.07], slMultiplier: 0.98 },
+        "Piercing Line": { action: "BUY", baseConfidence: 80, tpMultiplier: [1.02, 1.035, 1.05], slMultiplier: 0.985 },
+        "Dragonfly Doji": { action: "BUY", baseConfidence: 72, tpMultiplier: [1.015, 1.025, 1.04], slMultiplier: 0.99 },
+        "Bullish Marubozu": { action: "BUY", baseConfidence: 82, tpMultiplier: [1.025, 1.045, 1.07], slMultiplier: 0.982 },
+        "Tweezer Bottom": { action: "BUY", baseConfidence: 78, tpMultiplier: [1.018, 1.032, 1.05], slMultiplier: 0.987 },
+        "Three Inside Up": { action: "BUY", baseConfidence: 83, tpMultiplier: [1.022, 1.04, 1.06], slMultiplier: 0.983 },
+        "Three Outside Up": { action: "BUY", baseConfidence: 84, tpMultiplier: [1.023, 1.042, 1.065], slMultiplier: 0.982 },
+        "Rising Three Methods": { action: "BUY", baseConfidence: 86, tpMultiplier: [1.02, 1.045, 1.07], slMultiplier: 0.98 },
+        "Abandoned Baby (Bullish)": { action: "BUY", baseConfidence: 92, tpMultiplier: [1.03, 1.06, 1.09], slMultiplier: 0.97 },
+        "Kicker (Bullish)": { action: "BUY", baseConfidence: 95, tpMultiplier: [1.035, 1.07, 1.10], slMultiplier: 0.965 },
+        "Homing Pigeon": { action: "BUY", baseConfidence: 74, tpMultiplier: [1.015, 1.03, 1.045], slMultiplier: 0.988 },
+        "Matching Low": { action: "BUY", baseConfidence: 73, tpMultiplier: [1.015, 1.028, 1.042], slMultiplier: 0.989 },
+        "Ladder Bottom": { action: "BUY", baseConfidence: 79, tpMultiplier: [1.02, 1.035, 1.055], slMultiplier: 0.986 },
+        "Bullish Belt-Hold Line": { action: "BUY", baseConfidence: 77, tpMultiplier: [1.018, 1.032, 1.05], slMultiplier: 0.987 },
+        "On-Neck Line (Bullish)": { action: "BUY", baseConfidence: 68, tpMultiplier: [1.01, 1.02, 1.03], slMultiplier: 0.992 },
+        "Separating Line (Bullish)": { action: "BUY", baseConfidence: 71, tpMultiplier: [1.012, 1.024, 1.038], slMultiplier: 0.991 },
+        "Counterattack Line (Bullish)": { action: "BUY", baseConfidence: 76, tpMultiplier: [1.016, 1.03, 1.048], slMultiplier: 0.988 },
+        "Messenger Dove": { action: "BUY", baseConfidence: 69, tpMultiplier: [1.01, 1.022, 1.035], slMultiplier: 0.992 },
+        
+        // SELL patterns (20)
+        "Shooting Star": { action: "SELL", baseConfidence: 75, tpMultiplier: [0.98, 0.96, 0.94], slMultiplier: 1.015 },
+        "Bearish Engulfing": { action: "SELL", baseConfidence: 85, tpMultiplier: [0.975, 0.95, 0.925], slMultiplier: 1.02 },
+        "Hanging Man": { action: "SELL", baseConfidence: 72, tpMultiplier: [0.985, 0.97, 0.955], slMultiplier: 1.01 },
+        "Dark Cloud Cover": { action: "SELL", baseConfidence: 80, tpMultiplier: [0.98, 0.96, 0.94], slMultiplier: 1.015 },
+        "Three Black Crows": { action: "SELL", baseConfidence: 88, tpMultiplier: [0.97, 0.94, 0.91], slMultiplier: 1.025 },
+        "Evening Star": { action: "SELL", baseConfidence: 86, tpMultiplier: [0.975, 0.95, 0.925], slMultiplier: 1.02 },
+        "Gravestone Doji": { action: "SELL", baseConfidence: 70, tpMultiplier: [0.988, 0.976, 0.964], slMultiplier: 1.01 },
+        "Bearish Marubozu": { action: "SELL", baseConfidence: 82, tpMultiplier: [0.975, 0.955, 0.93], slMultiplier: 1.018 },
+        "Tweezer Top": { action: "SELL", baseConfidence: 78, tpMultiplier: [0.982, 0.965, 0.945], slMultiplier: 1.015 },
+        "Three Inside Down": { action: "SELL", baseConfidence: 83, tpMultiplier: [0.978, 0.958, 0.935], slMultiplier: 1.018 },
+        "Three Outside Down": { action: "SELL", baseConfidence: 84, tpMultiplier: [0.977, 0.956, 0.933], slMultiplier: 1.019 },
+        "Falling Three Methods": { action: "SELL", baseConfidence: 85, tpMultiplier: [0.976, 0.954, 0.93], slMultiplier: 1.02 },
+        "Abandoned Baby (Bearish)": { action: "SELL", baseConfidence: 90, tpMultiplier: [0.97, 0.94, 0.91], slMultiplier: 1.025 },
+        "Kicker (Bearish)": { action: "SELL", baseConfidence: 93, tpMultiplier: [0.965, 0.93, 0.90], slMultiplier: 1.03 },
+        "Advance Block": { action: "SELL", baseConfidence: 79, tpMultiplier: [0.98, 0.962, 0.94], slMultiplier: 1.016 },
+        "Three Identical Crows": { action: "SELL", baseConfidence: 87, tpMultiplier: [0.974, 0.948, 0.922], slMultiplier: 1.022 },
+        "Bearish Belt-Hold Line": { action: "SELL", baseConfidence: 76, tpMultiplier: [0.983, 0.967, 0.948], slMultiplier: 1.014 },
+        "In-Neck Line (Bearish)": { action: "SELL", baseConfidence: 68, tpMultiplier: [0.99, 0.98, 0.97], slMultiplier: 1.008 },
+        "Separating Line (Bearish)": { action: "SELL", baseConfidence: 72, tpMultiplier: [0.988, 0.976, 0.962], slMultiplier: 1.01 },
+        "Counterattack Line (Bearish)": { action: "SELL", baseConfidence: 74, tpMultiplier: [0.985, 0.97, 0.955], slMultiplier: 1.012 }
+    };
+    
+    // Store last signaled pattern to avoid repeats
+    let lastSignaledPattern = null;
+    let lastSignalTime = 0;
+    let patternCompleted = false;
+    
+    // Helper: calculate confidence based on pattern + market conditions (RSI, volume)
+    function calculateFinalConfidence(patternName, currentPrice, rsi, volume) {
+        const data = patternDatabase[patternName];
+        if (!data) return 50;
+        let confidence = data.baseConfidence;
+        // Adjust with RSI
+        if (data.action === "BUY") {
+            if (rsi < 30) confidence += 10;
+            else if (rsi < 40) confidence += 5;
+            else if (rsi > 70) confidence -= 15;
+        } else if (data.action === "SELL") {
+            if (rsi > 70) confidence += 10;
+            else if (rsi > 60) confidence += 5;
+            else if (rsi < 30) confidence -= 15;
+        }
+        // Volume boost (if volume > average)
+        if (volume && volume > 1.2) confidence += 5;
+        return Math.min(99, Math.max(1, confidence));
     }
-    try {
-        if (chart) chart.remove();
-        chart = LightweightCharts.createChart(container, {
-            width: container.clientWidth,
-            height: container.clientHeight,
-            layout: { backgroundColor: '#03050A', textColor: '#E5E7EB' },
-            grid: { vertLines: { color: '#1A1F33' }, horzLines: { color: '#1A1F33' } },
-            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-            rightPriceScale: { borderColor: '#2A3045', textColor: '#94A3B8' },
-            timeScale: { borderColor: '#2A3045', timeVisible: true, secondsVisible: false }
-        });
-        candleSeries = chart.addCandlestickSeries({
-            upColor: '#22C55E', downColor: '#EF4444',
-            borderDownColor: '#EF4444', borderUpColor: '#22C55E',
-            wickDownColor: '#EF4444', wickUpColor: '#22C55E'
-        });
-        window.addEventListener('resize', () => {
-            chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
-        });
-        return true;
-    } catch(e) {
-        console.error('Chart init error:', e);
-        return false;
-    }
-}
-
-// Fetch real data from Binance with fallback
-async function fetchData() {
-    if (isFetching) return;
-    isFetching = true;
-    try {
-        const activeBtn = document.querySelector('.timeframe-btn.active');
-        const interval = activeBtn ? activeBtn.dataset.timeframe : '5';
-        const binanceInterval = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' }[interval] || '5m';
-        const url = `https://api.binance.com/api/v3/klines?symbol=${currentSymbol}&interval=${binanceInterval}&limit=200`;
-        const response = await axios.get(url, { timeout: 8000 });
-        if (response.data && response.data.length > 0) {
-            currentData = response.data.map(k => ({
-                time: Math.floor(k[0] / 1000),
-                open: parseFloat(k[1]),
-                high: parseFloat(k[2]),
-                low: parseFloat(k[3]),
-                close: parseFloat(k[4]),
-                volume: parseFloat(k[5])
-            }));
-            updateChart();
-            if (typeof runAIAnalysis === 'function') runAIAnalysis();
-            document.getElementById('connectionStatus').innerHTML = '✅ Live';
+    
+    // Generate TP/SL levels based on entry price and pattern
+    function generateTPSL(entryPrice, patternName) {
+        const data = patternDatabase[patternName];
+        if (!data) return { tp1: entryPrice, tp2: entryPrice, tp3: entryPrice, sl: entryPrice };
+        let tp1, tp2, tp3, sl;
+        if (data.action === "BUY") {
+            tp1 = entryPrice * data.tpMultiplier[0];
+            tp2 = entryPrice * data.tpMultiplier[1];
+            tp3 = entryPrice * data.tpMultiplier[2];
+            sl = entryPrice * data.slMultiplier;
         } else {
-            throw new Error('Empty data');
+            tp1 = entryPrice * data.tpMultiplier[0];
+            tp2 = entryPrice * data.tpMultiplier[1];
+            tp3 = entryPrice * data.tpMultiplier[2];
+            sl = entryPrice * data.slMultiplier;
         }
-    } catch (error) {
-        console.warn('Binance error, using fallback data', error);
-        generateFallbackData();
-        document.getElementById('connectionStatus').innerHTML = '⚠️ Demo';
-    } finally {
-        isFetching = false;
-        document.getElementById('updateTime').innerHTML = DateTime.now().toFormat('HH:mm:ss');
+        return { tp1, tp2, tp3, sl };
     }
-}
-
-// Fallback data generator (realistic)
-function generateFallbackData() {
-    const now = Math.floor(Date.now() / 1000);
-    const intervalSec = 300; // 5min
-    let price = 67000 + (Math.random() - 0.5) * 500;
-    const newData = [];
-    for (let i = 0; i < 100; i++) {
-        const time = now - (100 - i) * intervalSec;
-        const open = price;
-        const change = (Math.random() - 0.5) * price * 0.005;
-        price += change;
-        const close = price;
-        const high = Math.max(open, close) + Math.random() * price * 0.003;
-        const low = Math.min(open, close) - Math.random() * price * 0.003;
-        newData.push({ time, open, high, low, close, volume: Math.random() * 1000 });
-    }
-    currentData = newData;
-    updateChart();
-    if (typeof runAIAnalysis === 'function') runAIAnalysis();
-}
-
-// Update chart with smooth data
-function updateChart() {
-    if (!candleSeries || !currentData.length) return;
-    const candleData = currentData.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close }));
-    candleSeries.setData(candleData);
-    currentPrice = currentData[currentData.length-1].close;
-    // Update price displays
-    const priceDisplay = (typeof currentCoin !== 'undefined' && ['PENGU','FARTCOIN','BRETT'].includes(currentCoin.symbol)) ? 4 : 2;
-    document.getElementById('currentPriceLarge').innerHTML = '$' + currentPrice.toFixed(priceDisplay);
-    document.getElementById('aiCurrentPrice').innerHTML = '$' + currentPrice.toFixed(priceDisplay);
-    // Update change
-    if (currentData.length > 1) {
-        const prevClose = currentData[currentData.length-2].close;
-        const change = ((currentPrice - prevClose)/prevClose * 100).toFixed(2);
-        const changeElem = document.getElementById('ai24hChange');
-        if (changeElem) {
-            changeElem.innerHTML = (change > 0 ? '+' : '') + change + '%';
-            changeElem.className = 'info-value ' + (change >= 0 ? 'positive' : 'negative');
+    
+    // Show signal with TP/SL and confidence
+    function emitSignal(patternName, entryPrice, confidence, rsi, volume) {
+        const data = patternDatabase[patternName];
+        if (!data) return;
+        const action = data.action;
+        const tpsl = generateTPSL(entryPrice, patternName);
+        const priceDisplay = (currentCoin && (currentCoin.symbol === 'PENGU' || currentCoin.symbol === 'FARTCOIN' || currentCoin.symbol === 'BRETT')) ? 4 : 2;
+        
+        let message = `
+🔔 **${patternName}** (${action}) – Confidence: ${confidence}%
+📊 Entry: $${entryPrice.toFixed(priceDisplay)}
+🎯 TP1: $${tpsl.tp1.toFixed(priceDisplay)} | TP2: $${tpsl.tp2.toFixed(priceDisplay)} | TP3: $${tpsl.tp3.toFixed(priceDisplay)}
+🛑 Stop Loss: $${tpsl.sl.toFixed(priceDisplay)}
+        `;
+        
+        // Show notification
+        if (typeof showNotification === 'function') {
+            showNotification(`${patternName} – ${action} signal! Confidence ${confidence}%`, action === "BUY" ? "success" : "error");
+        }
+        // Update the pattern alert box
+        const msgDiv = document.getElementById('latestPatternMessage');
+        const suggestionDiv = document.getElementById('patternSuggestion');
+        if (msgDiv) {
+            msgDiv.innerHTML = `<i class="fas fa-chart-line"></i> ${patternName} – ${action} (${confidence}%)`;
+            msgDiv.style.color = action === "BUY" ? "#22C55E" : "#EF4444";
+        }
+        if (suggestionDiv) {
+            suggestionDiv.innerHTML = `🎯 TP1: $${tpsl.tp1.toFixed(priceDisplay)} | TP2: $${tpsl.tp2.toFixed(priceDisplay)} | TP3: $${tpsl.tp3.toFixed(priceDisplay)} | SL: $${tpsl.sl.toFixed(priceDisplay)}`;
+        }
+        
+        // Also log to console
+        console.log(message);
+        // Optional: speak
+        if (typeof audioAlertsEnabled !== 'undefined' && audioAlertsEnabled) {
+            const utterance = new SpeechSynthesisUtterance(`${patternName} detected. ${action} signal with ${confidence} percent confidence. Entry at ${entryPrice}. Take profit levels and stop loss shown.`);
+            utterance.rate = 0.8;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
         }
     }
-}
-
-// Start periodic fetch (clean interval on symbol change)
-function startDataFetch() {
-    if (fetchInterval) clearInterval(fetchInterval);
-    fetchData(); // immediate
-    fetchInterval = setInterval(fetchData, 10000); // every 10s
-}
-
-// When symbol changes
-function switchSymbol(symbol) {
-    currentSymbol = symbol;
-    if (chart) startDataFetch();
-}
+    
+    // Hook into the existing pattern detection system
+    // We will override the detectPatterns method but only emit signal when pattern is fully formed (candle closed)
+    // Assuming the chart updates every 5 seconds with a new completed candle.
+    const originalDetectPatterns = SuperAI.prototype.detectPatterns;
+    SuperAI.prototype.detectPatterns = function(candles) {
+        const patterns = originalDetectPatterns.call(this, candles);
+        // Only consider the latest pattern if the last candle is closed (we assume it is closed because data is from Binance)
+        // To avoid false signals, we check if the pattern is new and not already signaled.
+        const allDetected = [...patterns.bullish, ...patterns.bearish, ...patterns.neutral];
+        if (allDetected.length === 0) return patterns;
+        
+        // Get the most recent pattern (simplest: first bullish or bearish)
+        let primaryPattern = null;
+        if (patterns.bullish.length > 0) primaryPattern = patterns.bullish[0];
+        else if (patterns.bearish.length > 0) primaryPattern = patterns.bearish[0];
+        else primaryPattern = patterns.neutral[0];
+        
+        if (!primaryPattern) return patterns;
+        
+        const now = Date.now();
+        // Only signal if this pattern is different from last signaled pattern, and cooldown 30 sec to avoid spam
+        if (primaryPattern === lastSignaledPattern && (now - lastSignalTime) < 30000) {
+            return patterns; // already signaled recently
+        }
+        
+        // Get current market data
+        const currentPrice = candles[candles.length-1].close;
+        let rsi = 50;
+        let volume = 1;
+        if (this.indicators && this.indicators.rsi) rsi = this.indicators.rsi;
+        if (candles.length > 0) volume = candles[candles.length-1].volume / 1000000; // rough
+        
+        const finalConfidence = calculateFinalConfidence(primaryPattern, currentPrice, rsi, volume);
+        if (finalConfidence >= 60) { // only signal if confidence > 60%
+            emitSignal(primaryPattern, currentPrice, finalConfidence, rsi, volume);
+            lastSignaledPattern = primaryPattern;
+            lastSignalTime = now;
+        } else {
+            // low confidence, no signal
+            console.log(`${primaryPattern} detected but confidence ${finalConfidence}% < 60% – no signal.`);
+        }
+        
+        return patterns;
+    };
+})();
     </script>
 </body>
 </html>
