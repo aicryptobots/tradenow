@@ -7082,298 +7082,138 @@ window.autoClosePositions = function() {
     window.addEventListener('load', addHistoryButton);
 })();
 
-// ==================== ADVANCED PATTERN SIGNAL ENGINE (42 PATTERNS) ====================
-(function() {
-    // ---------- 1. PATTERN ACTION MAPPING (BUY/SELL/NEUTRAL) ----------
-    const patternAction = {
-        // BUY (22)
-        "Hammer": "BUY", "Bullish Engulfing": "BUY", "Inverted Hammer": "BUY",
-        "Three White Soldiers": "BUY", "Morning Star": "BUY", "Piercing Line": "BUY",
-        "Dragonfly Doji": "BUY", "Bullish Marubozu": "BUY", "Tweezer Bottom": "BUY",
-        "Three Inside Up": "BUY", "Three Outside Up": "BUY", "Rising Three Methods": "BUY",
-        "Abandoned Baby (Bullish)": "BUY", "Kicker (Bullish)": "BUY", "Homing Pigeon": "BUY",
-        "Matching Low": "BUY", "Ladder Bottom": "BUY", "Bullish Belt-Hold Line": "BUY",
-        "On-Neck Line (Bullish)": "BUY", "Separating Line (Bullish)": "BUY",
-        "Counterattack Line (Bullish)": "BUY", "Messenger Dove": "BUY",
-        // SELL (20)
-        "Shooting Star": "SELL", "Bearish Engulfing": "SELL", "Hanging Man": "SELL",
-        "Dark Cloud Cover": "SELL", "Three Black Crows": "SELL", "Evening Star": "SELL",
-        "Gravestone Doji": "SELL", "Bearish Marubozu": "SELL", "Tweezer Top": "SELL",
-        "Three Inside Down": "SELL", "Three Outside Down": "SELL", "Falling Three Methods": "SELL",
-        "Abandoned Baby (Bearish)": "SELL", "Kicker (Bearish)": "SELL", "Advance Block": "SELL",
-        "Three Identical Crows": "SELL", "Bearish Belt-Hold Line": "SELL",
-        "In-Neck Line (Bearish)": "SELL", "Separating Line (Bearish)": "SELL",
-        "Counterattack Line (Bearish)": "SELL",
-        // Neutral
-        "Doji": "NEUTRAL", "Long-Legged Doji": "NEUTRAL"
-    };
+// ==================== OPTIMIZED CHART & DATA FETCH ====================
+let chart = null;
+let candleSeries = null;
+let currentData = [];
+let currentPrice = 67000;
+let currentSymbol = 'BTCUSDT';
+let fetchInterval = null;
+let isFetching = false;
 
-    // ---------- 2. PATTERN CONFIDENCE SCORES (%) ----------
-    const patternConfidence = {
-        "Hammer": 78, "Bullish Engulfing": 82, "Inverted Hammer": 72,
-        "Three White Soldiers": 85, "Morning Star": 88, "Piercing Line": 80,
-        "Dragonfly Doji": 70, "Bullish Marubozu": 75, "Tweezer Bottom": 76,
-        "Three Inside Up": 79, "Three Outside Up": 81, "Rising Three Methods": 83,
-        "Abandoned Baby (Bullish)": 86, "Kicker (Bullish)": 84, "Homing Pigeon": 68,
-        "Matching Low": 65, "Ladder Bottom": 71, "Bullish Belt-Hold Line": 74,
-        "On-Neck Line (Bullish)": 66, "Separating Line (Bullish)": 69,
-        "Counterattack Line (Bullish)": 70, "Messenger Dove": 67,
-        "Shooting Star": 79, "Bearish Engulfing": 83, "Hanging Man": 76,
-        "Dark Cloud Cover": 81, "Three Black Crows": 86, "Evening Star": 87,
-        "Gravestone Doji": 71, "Bearish Marubozu": 74, "Tweezer Top": 77,
-        "Three Inside Down": 78, "Three Outside Down": 80, "Falling Three Methods": 82,
-        "Abandoned Baby (Bearish)": 85, "Kicker (Bearish)": 83, "Advance Block": 75,
-        "Three Identical Crows": 79, "Bearish Belt-Hold Line": 72,
-        "In-Neck Line (Bearish)": 65, "Separating Line (Bearish)": 68,
-        "Counterattack Line (Bearish)": 69,
-        "Doji": 50, "Long-Legged Doji": 48
-    };
-
-    // ---------- 3. TRACK STATE (to avoid repeated signals) ----------
-    let currentSignal = null;          // { pattern, action, entryPrice, timestamp }
-    let signalActive = false;           // true until TP/SL hit
-    let lastCandleCloseTime = 0;
-
-    // ---------- 4. CALCULATE ATR (for TP/SL) ----------
-    function calculateATR(candles, period = 14) {
-        if (candles.length < period + 1) return 0;
-        let tr = [];
-        for (let i = 1; i < candles.length; i++) {
-            let high = candles[i].high;
-            let low = candles[i].low;
-            let prevClose = candles[i-1].close;
-            let tr1 = high - low;
-            let tr2 = Math.abs(high - prevClose);
-            let tr3 = Math.abs(low - prevClose);
-            tr.push(Math.max(tr1, tr2, tr3));
-        }
-        let atr = tr.slice(-period).reduce((a,b) => a+b, 0) / period;
-        return atr;
-    }
-
-    // ---------- 5. GENERATE TP & SL BASED ON PATTERN TYPE & ATR ----------
-    function getTPSL(entryPrice, patternAction, atr) {
-        if (patternAction === "BUY") {
-            let tp1 = entryPrice + atr * 1.2;
-            let tp2 = entryPrice + atr * 2.0;
-            let tp3 = entryPrice + atr * 3.0;
-            let sl  = entryPrice - atr * 0.8;
-            return { tp1, tp2, tp3, sl };
-        } else if (patternAction === "SELL") {
-            let tp1 = entryPrice - atr * 1.2;
-            let tp2 = entryPrice - atr * 2.0;
-            let tp3 = entryPrice - atr * 3.0;
-            let sl  = entryPrice + atr * 0.8;
-            return { tp1, tp2, tp3, sl };
-        }
-        return null;
-    }
-
-    // ---------- 6. DISPLAY SIGNAL IN A NEW UI PANEL ----------
-    function showPatternSignal(pattern, action, confidence, entryPrice, tp1, tp2, tp3, sl) {
-        // Create or update a dedicated signal panel
-        let panel = document.getElementById('patternSignalPanel');
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.id = 'patternSignalPanel';
-            panel.style.background = 'linear-gradient(135deg, #0B0F1C, #1A1F33)';
-            panel.style.border = '2px solid #3B82F6';
-            panel.style.borderRadius = '20px';
-            panel.style.padding = '16px';
-            panel.style.margin = '20px 0';
-            panel.style.fontFamily = 'monospace';
-            // Insert after the recommendation box or before signals container
-            const recBox = document.querySelector('.recommendation-box');
-            if (recBox) recBox.insertAdjacentElement('afterend', panel);
-            else document.querySelector('.signals-container')?.before(panel);
-        }
-
-        const priceDisplay = (currentCoin && (currentCoin.symbol === 'PENGU' || currentCoin.symbol === 'FARTCOIN' || currentCoin.symbol === 'BRETT')) ? 4 : 2;
-        panel.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <span style="color: #3B82F6; font-weight: 700;">📊 PATTERN SIGNAL</span>
-                    <span style="background: ${action === 'BUY' ? '#22C55E' : '#EF4444'}; padding: 4px 12px; border-radius: 30px; margin-left: 10px; font-size: 0.8rem;">${action}</span>
-                </div>
-                <div style="color: #F59E0B;">Confidence: ${confidence}%</div>
-            </div>
-            <div style="margin-top: 12px;">
-                <div><span style="color: #94A3B8;">Pattern:</span> <strong>${pattern}</strong></div>
-                <div><span style="color: #94A3B8;">Entry Price:</span> $${entryPrice.toFixed(priceDisplay)}</div>
-                <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 8px;">
-                    <div><span style="color: #22C55E;">TP1</span> $${tp1.toFixed(priceDisplay)}</div>
-                    <div><span style="color: #22C55E;">TP2</span> $${tp2.toFixed(priceDisplay)}</div>
-                    <div><span style="color: #22C55E;">TP3</span> $${tp3.toFixed(priceDisplay)}</div>
-                    <div><span style="color: #EF4444;">SL</span> $${sl.toFixed(priceDisplay)}</div>
-                </div>
-            </div>
-            <div style="margin-top: 10px; font-size: 0.75rem; color: #94A3B8;">
-                ⚡ Signal generated at ${new Date().toLocaleTimeString()}
-            </div>
-        `;
-
-        // Also speak and show notification
-        let msg = `${pattern} – ${action} signal with ${confidence}% confidence. TP levels: ${tp1.toFixed(2)}, ${tp2.toFixed(2)}, ${tp3.toFixed(2)}. Stop loss: ${sl.toFixed(2)}`;
-        if (typeof showNotification === 'function') showNotification(msg, action === 'BUY' ? 'success' : 'error');
-        // Speech
-        const utterance = new SpeechSynthesisUtterance(msg);
-        utterance.rate = 0.8;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
-    }
-
-    // ---------- 7. CHECK IF CURRENT PRICE HAS HIT TP OR SL ----------
-    function checkIfSignalCompleted() {
-        if (!signalActive || !currentSignal) return false;
-        const { action, entryPrice, tp1, tp2, tp3, sl, pattern } = currentSignal;
-        let currentPrice = (typeof currentPrice !== 'undefined') ? currentPrice : 
-                          (document.getElementById('currentPriceLarge') ? parseFloat(document.getElementById('currentPriceLarge').innerText.replace('$','').replace(',','')) : entryPrice);
-        let completed = false;
-        let reason = '';
-        if (action === 'BUY') {
-            if (currentPrice >= tp3) { completed = true; reason = 'TP3 hit'; }
-            else if (currentPrice <= sl) { completed = true; reason = 'Stop Loss hit'; }
-        } else if (action === 'SELL') {
-            if (currentPrice <= tp3) { completed = true; reason = 'TP3 hit'; }
-            else if (currentPrice >= sl) { completed = true; reason = 'Stop Loss hit'; }
-        }
-        if (completed) {
-            signalActive = false;
-            currentSignal = null;
-            let panel = document.getElementById('patternSignalPanel');
-            if (panel) {
-                let statusDiv = document.createElement('div');
-                statusDiv.style.marginTop = '8px';
-                statusDiv.style.padding = '8px';
-                statusDiv.style.background = '#2A3045';
-                statusDiv.style.borderRadius = '8px';
-                statusDiv.style.textAlign = 'center';
-                statusDiv.innerHTML = `✅ Signal completed: ${reason} at $${currentPrice.toFixed(2)}`;
-                panel.appendChild(statusDiv);
-                setTimeout(() => statusDiv.remove(), 5000);
-            }
-            if (typeof showNotification === 'function') showNotification(`Pattern signal completed: ${reason}`, 'info');
-            return true;
-        }
+// Initialize chart with error handling
+function initChart() {
+    const container = document.getElementById('tradingview_chart');
+    if (!container) {
+        console.error('Chart container not found');
         return false;
     }
+    try {
+        if (chart) chart.remove();
+        chart = LightweightCharts.createChart(container, {
+            width: container.clientWidth,
+            height: container.clientHeight,
+            layout: { backgroundColor: '#03050A', textColor: '#E5E7EB' },
+            grid: { vertLines: { color: '#1A1F33' }, horzLines: { color: '#1A1F33' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            rightPriceScale: { borderColor: '#2A3045', textColor: '#94A3B8' },
+            timeScale: { borderColor: '#2A3045', timeVisible: true, secondsVisible: false }
+        });
+        candleSeries = chart.addCandlestickSeries({
+            upColor: '#22C55E', downColor: '#EF4444',
+            borderDownColor: '#EF4444', borderUpColor: '#22C55E',
+            wickDownColor: '#EF4444', wickUpColor: '#22C55E'
+        });
+        window.addEventListener('resize', () => {
+            chart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
+        });
+        return true;
+    } catch(e) {
+        console.error('Chart init error:', e);
+        return false;
+    }
+}
 
-    // ---------- 8. MAIN FUNCTION TO EVALUATE PATTERNS AND GENERATE SIGNAL ----------
-    function evaluatePatternsAndSignal(candles) {
-        // Only run if we have enough candles and no active signal
-        if (!candles || candles.length < 10) return;
-        if (signalActive) {
-            checkIfSignalCompleted();
-            return;
-        }
-
-        // Make sure the last candle is closed (we use current data, assuming it's final)
-        // To avoid partial candle signals, we can check if the current time is past the last candle's close time.
-        // For simplicity, we assume fetchData gives completed candles. We'll add a small guard:
-        const lastCandle = candles[candles.length-1];
-        const now = Math.floor(Date.now() / 1000);
-        // If the last candle's time is within the last 60 seconds, it might be still forming – skip.
-        if (now - lastCandle.time < 60) return;
-
-        // Call the existing detectPatterns (enhanced version)
-        let patterns = { bullish: [], bearish: [], neutral: [] };
-        if (typeof superAI !== 'undefined' && superAI.detectPatterns) {
-            patterns = superAI.detectPatterns(candles);
+// Fetch real data from Binance with fallback
+async function fetchData() {
+    if (isFetching) return;
+    isFetching = true;
+    try {
+        const activeBtn = document.querySelector('.timeframe-btn.active');
+        const interval = activeBtn ? activeBtn.dataset.timeframe : '5';
+        const binanceInterval = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' }[interval] || '5m';
+        const url = `https://api.binance.com/api/v3/klines?symbol=${currentSymbol}&interval=${binanceInterval}&limit=200`;
+        const response = await axios.get(url, { timeout: 8000 });
+        if (response.data && response.data.length > 0) {
+            currentData = response.data.map(k => ({
+                time: Math.floor(k[0] / 1000),
+                open: parseFloat(k[1]),
+                high: parseFloat(k[2]),
+                low: parseFloat(k[3]),
+                close: parseFloat(k[4]),
+                volume: parseFloat(k[5])
+            }));
+            updateChart();
+            if (typeof runAIAnalysis === 'function') runAIAnalysis();
+            document.getElementById('connectionStatus').innerHTML = '✅ Live';
         } else {
-            // Fallback: use the original detectPatterns if available (but we assume superAI exists)
-            console.warn('superAI not found, cannot detect patterns');
-            return;
+            throw new Error('Empty data');
         }
+    } catch (error) {
+        console.warn('Binance error, using fallback data', error);
+        generateFallbackData();
+        document.getElementById('connectionStatus').innerHTML = '⚠️ Demo';
+    } finally {
+        isFetching = false;
+        document.getElementById('updateTime').innerHTML = DateTime.now().toFormat('HH:mm:ss');
+    }
+}
 
-        // Combine all patterns with their action
-        let detected = [];
-        patterns.bullish.forEach(p => detected.push({ name: p, action: 'BUY' }));
-        patterns.bearish.forEach(p => detected.push({ name: p, action: 'SELL' }));
-        patterns.neutral.forEach(p => detected.push({ name: p, action: 'NEUTRAL' }));
+// Fallback data generator (realistic)
+function generateFallbackData() {
+    const now = Math.floor(Date.now() / 1000);
+    const intervalSec = 300; // 5min
+    let price = 67000 + (Math.random() - 0.5) * 500;
+    const newData = [];
+    for (let i = 0; i < 100; i++) {
+        const time = now - (100 - i) * intervalSec;
+        const open = price;
+        const change = (Math.random() - 0.5) * price * 0.005;
+        price += change;
+        const close = price;
+        const high = Math.max(open, close) + Math.random() * price * 0.003;
+        const low = Math.min(open, close) - Math.random() * price * 0.003;
+        newData.push({ time, open, high, low, close, volume: Math.random() * 1000 });
+    }
+    currentData = newData;
+    updateChart();
+    if (typeof runAIAnalysis === 'function') runAIAnalysis();
+}
 
-        if (detected.length === 0) return;
-
-        // Pick the most significant pattern (first one for now, or highest confidence)
-        let bestPattern = detected[0];
-        let bestConfidence = patternConfidence[bestPattern.name] || 50;
-        for (let p of detected) {
-            let conf = patternConfidence[p.name] || 50;
-            if (conf > bestConfidence) {
-                bestConfidence = conf;
-                bestPattern = p;
-            }
+// Update chart with smooth data
+function updateChart() {
+    if (!candleSeries || !currentData.length) return;
+    const candleData = currentData.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close }));
+    candleSeries.setData(candleData);
+    currentPrice = currentData[currentData.length-1].close;
+    // Update price displays
+    const priceDisplay = (typeof currentCoin !== 'undefined' && ['PENGU','FARTCOIN','BRETT'].includes(currentCoin.symbol)) ? 4 : 2;
+    document.getElementById('currentPriceLarge').innerHTML = '$' + currentPrice.toFixed(priceDisplay);
+    document.getElementById('aiCurrentPrice').innerHTML = '$' + currentPrice.toFixed(priceDisplay);
+    // Update change
+    if (currentData.length > 1) {
+        const prevClose = currentData[currentData.length-2].close;
+        const change = ((currentPrice - prevClose)/prevClose * 100).toFixed(2);
+        const changeElem = document.getElementById('ai24hChange');
+        if (changeElem) {
+            changeElem.innerHTML = (change > 0 ? '+' : '') + change + '%';
+            changeElem.className = 'info-value ' + (change >= 0 ? 'positive' : 'negative');
         }
-
-        // Only generate signal if it's BUY or SELL (not NEUTRAL)
-        if (bestPattern.action === 'NEUTRAL') return;
-
-        // Get current price
-        let entryPrice = lastCandle.close;
-        // Calculate ATR
-        let atr = calculateATR(candles, 14);
-        if (atr === 0) atr = entryPrice * 0.01; // fallback 1%
-        let tpSl = getTPSL(entryPrice, bestPattern.action, atr);
-        if (!tpSl) return;
-
-        // Store signal
-        currentSignal = {
-            pattern: bestPattern.name,
-            action: bestPattern.action,
-            confidence: bestConfidence,
-            entryPrice: entryPrice,
-            tp1: tpSl.tp1,
-            tp2: tpSl.tp2,
-            tp3: tpSl.tp3,
-            sl: tpSl.sl,
-            timestamp: Date.now()
-        };
-        signalActive = true;
-
-        // Display the signal
-        showPatternSignal(
-            currentSignal.pattern,
-            currentSignal.action,
-            currentSignal.confidence,
-            currentSignal.entryPrice,
-            currentSignal.tp1,
-            currentSignal.tp2,
-            currentSignal.tp3,
-            currentSignal.sl
-        );
     }
+}
 
-    // ---------- 9. HOOK INTO EXISTING DATA FETCH ----------
-    // Override or extend the existing fetchData/updateChart to call our evaluator
-    const originalUpdateChart = window.updateChart;
-    if (originalUpdateChart) {
-        window.updateChart = function() {
-            originalUpdateChart();
-            if (typeof currentData !== 'undefined' && currentData && currentData.length > 0) {
-                evaluatePatternsAndSignal(currentData);
-            }
-        };
-    } else {
-        // If updateChart not found, use setInterval to check after each data refresh
-        let lastDataLength = 0;
-        setInterval(() => {
-            if (typeof currentData !== 'undefined' && currentData && currentData.length !== lastDataLength) {
-                lastDataLength = currentData.length;
-                evaluatePatternsAndSignal(currentData);
-            }
-        }, 3000);
-    }
+// Start periodic fetch (clean interval on symbol change)
+function startDataFetch() {
+    if (fetchInterval) clearInterval(fetchInterval);
+    fetchData(); // immediate
+    fetchInterval = setInterval(fetchData, 10000); // every 10s
+}
 
-    // Also call on manual coin switch
-    const originalSelectCoin = window.selectCoin;
-    if (originalSelectCoin) {
-        window.selectCoin = function(coin) {
-            originalSelectCoin(coin);
-            setTimeout(() => {
-                if (typeof currentData !== 'undefined') evaluatePatternsAndSignal(currentData);
-            }, 500);
-        };
-    }
-})();
+// When symbol changes
+function switchSymbol(symbol) {
+    currentSymbol = symbol;
+    if (chart) startDataFetch();
+}
     </script>
 </body>
 </html>
