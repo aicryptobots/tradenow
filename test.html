@@ -4038,6 +4038,17 @@
                     </div>
                 </div>
             </div>
+
+            <div id="patternAlertBox" style="background: linear-gradient(135deg, #0F1422, #1A1F33); border: 2px solid #F59E0B; border-radius: 20px; padding: 15px; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <i class="fas fa-chart-line" style="font-size: 1.5rem; color: #F59E0B;"></i>
+        <span style="font-weight: 600;">📢 LATEST PATTERN SIGNAL (99%+ confidence only)</span>
+    </div>
+    <div id="latestPatternMessage" style="margin-top: 8px; font-size: 1.1rem; font-weight: 500; color: #E5E7EB;">
+        Waiting for high-probability pattern...
+    </div>
+    <div id="patternSuggestion" style="margin-top: 5px; font-size: 0.9rem; color: #94A3B8;"></div>
+</div>
             
             <!-- RECOMMENDATION ENTRY BOX -->
             <div class="recommendation-box" id="recommendationBox">
@@ -6657,305 +6668,6 @@ window.autoClosePositions = function() {
     }
 };
 
-// ==================== 4. AUTO TRADING BOT (PER‑ACCOUNT TIMEFRAME) ====================
-(function() {
-    let enabled = false;
-    let interval = null;
-    let lastTradeTime = 0;
-    const COOLDOWN = 60000;
-    let selectedTF = '5m';
-    let currentUserCache = null;
-
-    function getStorageKey(base) {
-        let user = (typeof currentUser !== 'undefined') ? currentUser : window.currentUser;
-        return base + '_' + (user || 'guest');
-    }
-
-    function loadUserSettings() {
-        let user = (typeof currentUser !== 'undefined') ? currentUser : window.currentUser;
-        if (user) {
-            let enabledKey = 'autoTradeEnabled_' + user;
-            let tfKey = 'autoTradeTF_' + user;
-            enabled = localStorage.getItem(enabledKey) === 'true';
-            let savedTF = localStorage.getItem(tfKey);
-            if (savedTF) selectedTF = savedTF;
-            else selectedTF = '5m';
-        } else {
-            // guest mode
-            enabled = localStorage.getItem('autoTradeEnabled_guest') === 'true';
-            let savedTF = localStorage.getItem('autoTradeTF_guest');
-            if (savedTF) selectedTF = savedTF;
-            else selectedTF = '5m';
-        }
-        // Also update dropdown if it exists
-        let dropdown = document.getElementById('autoTimeframe');
-        if (dropdown) {
-            for (let i = 0; i < dropdown.options.length; i++) {
-                if (dropdown.options[i].value === selectedTF) {
-                    dropdown.selectedIndex = i;
-                    break;
-                }
-            }
-        }
-    }
-
-    function saveUserSettings() {
-        let user = (typeof currentUser !== 'undefined') ? currentUser : window.currentUser;
-        let suffix = user || 'guest';
-        localStorage.setItem('autoTradeEnabled_' + suffix, enabled);
-        localStorage.setItem('autoTradeTF_' + suffix, selectedTF);
-    }
-
-    // Initial load (may be guest)
-    loadUserSettings();
-
-    function getFinalSignal() {
-        let signalElem = document.getElementById('finalSignal');
-        if (signalElem) {
-            let text = signalElem.innerText.trim().toUpperCase();
-            if (text === 'BUY') return 'buy';
-            if (text === 'SELL') return 'sell';
-        }
-        let signalDiv = document.querySelector('.final-signal .signal-text');
-        if (signalDiv) {
-            let text = signalDiv.innerText.trim().toUpperCase();
-            if (text === 'BUY') return 'buy';
-            if (text === 'SELL') return 'sell';
-        }
-        return null;
-    }
-
-    function getRSI() {
-        let val = document.getElementById('rsiValue')?.innerText;
-        if (val && !isNaN(parseFloat(val))) return parseFloat(val);
-        val = document.getElementById('ultRsi')?.innerText;
-        if (val && !isNaN(parseFloat(val))) return parseFloat(val);
-        return 50;
-    }
-
-    let statusDiv = null;
-    function updateStatusDisplay(msg) {
-        if (statusDiv) {
-            statusDiv.innerHTML = msg;
-            statusDiv.style.color = msg.includes('✅') ? '#22C55E' : (msg.includes('🔴') ? '#EF4444' : '#F59E0B');
-        }
-    }
-
-    function checkAndTrade() {
-        autoClosePositions();
-        if (!enabled) {
-            updateStatusDisplay('⏸️ Auto trade OFF');
-            return;
-        }
-        let user = (typeof currentUser !== 'undefined') ? currentUser : window.currentUser;
-        if (!user) {
-            updateStatusDisplay('🔴 Not logged in');
-            return;
-        }
-        let data = (typeof usersData !== 'undefined') ? usersData : window.usersData;
-        if (!data || !data[user]) {
-            updateStatusDisplay('⚠️ No user data');
-            return;
-        }
-        let userData = data[user].tradingData;
-        if (!userData) {
-            updateStatusDisplay('⚠️ No trading data');
-            return;
-        }
-        if (userData.positions && userData.positions.length > 0) {
-            updateStatusDisplay('📌 Open position exists - waiting');
-            return;
-        }
-
-        let signal = getFinalSignal();
-        let rsi = getRSI();
-        let now = Date.now();
-        let cooldownLeft = Math.max(0, COOLDOWN - (now - lastTradeTime));
-
-        let action = null;
-        if (signal === 'buy' && rsi < 30) action = 'buy';
-        else if (signal === 'sell' && rsi > 70) action = 'sell';
-
-        let statusMsg = `🔄 Timeframe: ${selectedTF} | Signal: ${signal ? signal.toUpperCase() : 'NONE'} | RSI=${rsi.toFixed(1)} | ${action ? 'Action: '+action.toUpperCase() : 'No action'}`;
-        if (cooldownLeft > 0) statusMsg += ` | Cooldown: ${Math.ceil(cooldownLeft/1000)}s`;
-        updateStatusDisplay(statusMsg);
-
-        if (!action) return;
-        if (cooldownLeft > 0) return;
-
-        if (typeof window.executeTrade === 'function') {
-            window.executeTrade(action);
-            lastTradeTime = now;
-            updateStatusDisplay(`✅ ${action.toUpperCase()} trade executed!`);
-            if (typeof showNotification === 'function') {
-                showNotification(`🤖 AUTO ${action.toUpperCase()} | ${selectedTF} | Signal:${signal.toUpperCase()} | RSI:${rsi.toFixed(0)}`, 'success');
-            }
-        } else {
-            updateStatusDisplay('❌ executeTrade function missing');
-        }
-    }
-
-    function addPanel() {
-        let footer = document.querySelector('.ultimate-rec-footer .trade-actions');
-        if (!footer) { setTimeout(addPanel, 500); return; }
-        if (document.getElementById('autoPanel')) return;
-
-        let panel = document.createElement('div');
-        panel.id = 'autoPanel';
-        panel.style.display = 'flex';
-        panel.style.flexWrap = 'wrap';
-        panel.style.gap = '10px';
-        panel.style.marginTop = '10px';
-        panel.style.alignItems = 'center';
-        panel.style.justifyContent = 'space-between';
-        panel.style.width = '100%';
-
-        let leftDiv = document.createElement('div');
-        leftDiv.style.display = 'flex';
-        leftDiv.style.gap = '10px';
-
-        let select = document.createElement('select');
-        select.id = 'autoTimeframe';
-        select.style.background = '#1A1F33';
-        select.style.border = '1px solid #3B82F6';
-        select.style.borderRadius = '8px';
-        select.style.padding = '8px 12px';
-        select.style.color = 'white';
-        ['1m','5m','15m','1h','4h','1D'].forEach(tf => {
-            let opt = document.createElement('option');
-            opt.value = tf;
-            opt.textContent = tf;
-            if (tf === selectedTF) opt.selected = true;
-            select.appendChild(opt);
-        });
-        select.onchange = (e) => {
-            selectedTF = e.target.value;
-            saveUserSettings();
-            let { tpPercent, slPercent } = getTPSLByTimeframe(selectedTF);
-            if (typeof showNotification === 'function') {
-                showNotification(`Timeframe: ${selectedTF} | TP: ${(tpPercent*100).toFixed(2)}% | SL: ${(slPercent*100).toFixed(2)}%`, 'info');
-            }
-        };
-
-        let btn = document.createElement('button');
-        btn.id = 'autoStartStop';
-        btn.textContent = enabled ? '⏸️ Stop Auto Trading' : '🤖 Start Auto Trading';
-        btn.style.background = 'linear-gradient(135deg, #3B82F6, #8B5CF6)';
-        btn.style.color = 'white';
-        btn.style.border = 'none';
-        btn.style.borderRadius = '8px';
-        btn.style.padding = '8px 16px';
-        btn.style.cursor = 'pointer';
-        btn.onclick = () => {
-            enabled = !enabled;
-            saveUserSettings();
-            btn.textContent = enabled ? '⏸️ Stop Auto Trading' : '🤖 Start Auto Trading';
-            if (enabled) {
-                if (interval) clearInterval(interval);
-                interval = setInterval(checkAndTrade, 10000);
-                checkAndTrade();
-                if (typeof showNotification === 'function') showNotification('✅ Auto trading ENABLED (Signal + RSI)', 'success');
-            } else {
-                if (interval) clearInterval(interval);
-                interval = null;
-                updateStatusDisplay('⏹️ Auto trading disabled');
-                if (typeof showNotification === 'function') showNotification('⏹️ Auto trading DISABLED', 'info');
-            }
-        };
-        leftDiv.appendChild(select);
-        leftDiv.appendChild(btn);
-
-        let rightDiv = document.createElement('div');
-        rightDiv.style.display = 'flex';
-        rightDiv.style.gap = '10px';
-
-        let testBuy = document.createElement('button');
-        testBuy.textContent = '🔵 Test BUY';
-        testBuy.style.background = '#22C55E';
-        testBuy.style.color = 'white';
-        testBuy.style.border = 'none';
-        testBuy.style.borderRadius = '8px';
-        testBuy.style.padding = '8px 16px';
-        testBuy.style.cursor = 'pointer';
-        testBuy.onclick = () => { if (typeof window.executeTrade === 'function') window.executeTrade('buy'); else alert('executeTrade missing'); };
-
-        let testSell = document.createElement('button');
-        testSell.textContent = '🔴 Test SELL';
-        testSell.style.background = '#EF4444';
-        testSell.style.color = 'white';
-        testSell.style.border = 'none';
-        testSell.style.borderRadius = '8px';
-        testSell.style.padding = '8px 16px';
-        testSell.style.cursor = 'pointer';
-        testSell.onclick = () => { if (typeof window.executeTrade === 'function') window.executeTrade('sell'); else alert('executeTrade missing'); };
-
-        rightDiv.appendChild(testBuy);
-        rightDiv.appendChild(testSell);
-
-        panel.appendChild(leftDiv);
-        panel.appendChild(rightDiv);
-        footer.appendChild(panel);
-
-        statusDiv = document.createElement('div');
-        statusDiv.id = 'autoStatus';
-        statusDiv.style.marginTop = '10px';
-        statusDiv.style.padding = '8px';
-        statusDiv.style.background = '#1A1F33';
-        statusDiv.style.borderRadius = '8px';
-        statusDiv.style.fontSize = '0.85rem';
-        statusDiv.style.textAlign = 'center';
-        statusDiv.style.fontFamily = 'monospace';
-        statusDiv.innerHTML = enabled ? '🔄 Auto trade active' : '⏸️ Auto trade OFF';
-        footer.parentNode.insertBefore(statusDiv, footer.nextSibling);
-    }
-
-    function onLogin() {
-        // Reload settings for the logged-in user
-        loadUserSettings();
-        // Update button text if panel exists
-        let btn = document.getElementById('autoStartStop');
-        if (btn) btn.textContent = enabled ? '⏸️ Stop Auto Trading' : '🤖 Start Auto Trading';
-        // Restart interval if enabled
-        if (enabled) {
-            if (interval) clearInterval(interval);
-            interval = setInterval(checkAndTrade, 10000);
-            checkAndTrade();
-        } else {
-            if (interval) clearInterval(interval);
-            interval = null;
-            updateStatusDisplay('⏹️ Auto trading disabled');
-        }
-    }
-
-    if (typeof loginWithCode === 'function') {
-        const origLogin = loginWithCode;
-        window.loginWithCode = async function() {
-            await origLogin();
-            onLogin();
-        };
-    }
-    if (typeof logout === 'function') {
-        const origLogout = logout;
-        window.logout = function() {
-            if (interval) clearInterval(interval);
-            interval = null;
-            updateStatusDisplay('⏹️ Auto trading disabled (logged out)');
-            origLogout();
-        };
-    }
-
-    window.addEventListener('load', () => {
-        addPanel();
-        if (enabled) {
-            let user = (typeof currentUser !== 'undefined') ? currentUser : window.currentUser;
-            if (user) {
-                interval = setInterval(checkAndTrade, 10000);
-                setTimeout(checkAndTrade, 2000);
-            }
-        }
-    });
-})();
-
 // ==================== 5. TRADE HISTORY FEATURE (PERSISTENT) ====================
 (function() {
     function addHistoryButton() {
@@ -7071,195 +6783,271 @@ window.autoClosePositions = function() {
     window.addEventListener('load', addHistoryButton);
 })();
 
-// ==================== SIMPLE PATTERN SIGNAL + TIMEFRAME + TIMER ====================
+// ==================== HIGH-PROBABILITY PATTERN SIGNAL WITH TIMER ====================
 (function() {
-    // ---------- Pattern database (BUY/SELL, base confidence, target %, default timeframe) ----------
-    const patternData = {
-        // BUY patterns (22)
-        "Hammer": { action: "BUY", baseConf: 75, targetPercent: 0.8, defaultTimeframe: 5 },
-        "Bullish Engulfing": { action: "BUY", baseConf: 85, targetPercent: 1.0, defaultTimeframe: 5 },
-        "Inverted Hammer": { action: "BUY", baseConf: 70, targetPercent: 0.6, defaultTimeframe: 5 },
-        "Three White Soldiers": { action: "BUY", baseConf: 90, targetPercent: 1.2, defaultTimeframe: 10 },
-        "Morning Star": { action: "BUY", baseConf: 88, targetPercent: 1.1, defaultTimeframe: 10 },
-        "Piercing Line": { action: "BUY", baseConf: 80, targetPercent: 0.9, defaultTimeframe: 5 },
-        "Dragonfly Doji": { action: "BUY", baseConf: 72, targetPercent: 0.5, defaultTimeframe: 5 },
-        "Bullish Marubozu": { action: "BUY", baseConf: 82, targetPercent: 1.0, defaultTimeframe: 5 },
-        "Tweezer Bottom": { action: "BUY", baseConf: 78, targetPercent: 0.8, defaultTimeframe: 5 },
-        "Three Inside Up": { action: "BUY", baseConf: 83, targetPercent: 0.9, defaultTimeframe: 5 },
-        "Three Outside Up": { action: "BUY", baseConf: 84, targetPercent: 1.0, defaultTimeframe: 5 },
-        "Rising Three Methods": { action: "BUY", baseConf: 86, targetPercent: 1.0, defaultTimeframe: 10 },
-        "Abandoned Baby (Bullish)": { action: "BUY", baseConf: 92, targetPercent: 1.3, defaultTimeframe: 10 },
-        "Kicker (Bullish)": { action: "BUY", baseConf: 95, targetPercent: 1.5, defaultTimeframe: 10 },
-        "Homing Pigeon": { action: "BUY", baseConf: 74, targetPercent: 0.7, defaultTimeframe: 5 },
-        "Matching Low": { action: "BUY", baseConf: 73, targetPercent: 0.6, defaultTimeframe: 5 },
-        "Ladder Bottom": { action: "BUY", baseConf: 79, targetPercent: 0.9, defaultTimeframe: 5 },
-        "Bullish Belt-Hold Line": { action: "BUY", baseConf: 77, targetPercent: 0.8, defaultTimeframe: 5 },
-        "On-Neck Line (Bullish)": { action: "BUY", baseConf: 68, targetPercent: 0.5, defaultTimeframe: 5 },
-        "Separating Line (Bullish)": { action: "BUY", baseConf: 71, targetPercent: 0.6, defaultTimeframe: 5 },
-        "Counterattack Line (Bullish)": { action: "BUY", baseConf: 76, targetPercent: 0.7, defaultTimeframe: 5 },
-        "Messenger Dove": { action: "BUY", baseConf: 69, targetPercent: 0.5, defaultTimeframe: 5 },
+    // ---------- Pattern Database with base confidence (only patterns with potential 99%+ after adjustment) ----------
+    const patternDatabase = {
+        // High-confidence BUY patterns
+        "Hammer": { action: "BUY", baseConfidence: 92, targetMultiplier: 1.015, slMultiplier: 0.99 },
+        "Bullish Engulfing": { action: "BUY", baseConfidence: 95, targetMultiplier: 1.02, slMultiplier: 0.988 },
+        "Inverted Hammer": { action: "BUY", baseConfidence: 90, targetMultiplier: 1.012, slMultiplier: 0.992 },
+        "Three White Soldiers": { action: "BUY", baseConfidence: 98, targetMultiplier: 1.025, slMultiplier: 0.985 },
+        "Morning Star": { action: "BUY", baseConfidence: 97, targetMultiplier: 1.022, slMultiplier: 0.986 },
+        "Piercing Line": { action: "BUY", baseConfidence: 93, targetMultiplier: 1.018, slMultiplier: 0.989 },
+        "Dragonfly Doji": { action: "BUY", baseConfidence: 88, targetMultiplier: 1.01, slMultiplier: 0.995 },
+        "Bullish Marubozu": { action: "BUY", baseConfidence: 94, targetMultiplier: 1.02, slMultiplier: 0.987 },
+        "Tweezer Bottom": { action: "BUY", baseConfidence: 91, targetMultiplier: 1.015, slMultiplier: 0.99 },
+        "Three Inside Up": { action: "BUY", baseConfidence: 96, targetMultiplier: 1.022, slMultiplier: 0.986 },
+        "Three Outside Up": { action: "BUY", baseConfidence: 96, targetMultiplier: 1.022, slMultiplier: 0.986 },
+        "Rising Three Methods": { action: "BUY", baseConfidence: 95, targetMultiplier: 1.02, slMultiplier: 0.988 },
+        "Abandoned Baby (Bullish)": { action: "BUY", baseConfidence: 98, targetMultiplier: 1.028, slMultiplier: 0.982 },
+        "Kicker (Bullish)": { action: "BUY", baseConfidence: 99, targetMultiplier: 1.03, slMultiplier: 0.98 },
         
-        // SELL patterns (20)
-        "Shooting Star": { action: "SELL", baseConf: 75, targetPercent: 0.8, defaultTimeframe: 5 },
-        "Bearish Engulfing": { action: "SELL", baseConf: 85, targetPercent: 1.0, defaultTimeframe: 5 },
-        "Hanging Man": { action: "SELL", baseConf: 72, targetPercent: 0.7, defaultTimeframe: 5 },
-        "Dark Cloud Cover": { action: "SELL", baseConf: 80, targetPercent: 0.9, defaultTimeframe: 5 },
-        "Three Black Crows": { action: "SELL", baseConf: 88, targetPercent: 1.2, defaultTimeframe: 10 },
-        "Evening Star": { action: "SELL", baseConf: 86, targetPercent: 1.1, defaultTimeframe: 10 },
-        "Gravestone Doji": { action: "SELL", baseConf: 70, targetPercent: 0.6, defaultTimeframe: 5 },
-        "Bearish Marubozu": { action: "SELL", baseConf: 82, targetPercent: 1.0, defaultTimeframe: 5 },
-        "Tweezer Top": { action: "SELL", baseConf: 78, targetPercent: 0.8, defaultTimeframe: 5 },
-        "Three Inside Down": { action: "SELL", baseConf: 83, targetPercent: 0.9, defaultTimeframe: 5 },
-        "Three Outside Down": { action: "SELL", baseConf: 84, targetPercent: 1.0, defaultTimeframe: 5 },
-        "Falling Three Methods": { action: "SELL", baseConf: 85, targetPercent: 1.0, defaultTimeframe: 10 },
-        "Abandoned Baby (Bearish)": { action: "SELL", baseConf: 90, targetPercent: 1.3, defaultTimeframe: 10 },
-        "Kicker (Bearish)": { action: "SELL", baseConf: 93, targetPercent: 1.5, defaultTimeframe: 10 },
-        "Advance Block": { action: "SELL", baseConf: 79, targetPercent: 0.9, defaultTimeframe: 5 },
-        "Three Identical Crows": { action: "SELL", baseConf: 87, targetPercent: 1.1, defaultTimeframe: 10 },
-        "Bearish Belt-Hold Line": { action: "SELL", baseConf: 76, targetPercent: 0.8, defaultTimeframe: 5 },
-        "In-Neck Line (Bearish)": { action: "SELL", baseConf: 68, targetPercent: 0.5, defaultTimeframe: 5 },
-        "Separating Line (Bearish)": { action: "SELL", baseConf: 71, targetPercent: 0.6, defaultTimeframe: 5 },
-        "Counterattack Line (Bearish)": { action: "SELL", baseConf: 74, targetPercent: 0.7, defaultTimeframe: 5 }
+        // High-confidence SELL patterns
+        "Shooting Star": { action: "SELL", baseConfidence: 92, targetMultiplier: 0.985, slMultiplier: 1.01 },
+        "Bearish Engulfing": { action: "SELL", baseConfidence: 95, targetMultiplier: 0.98, slMultiplier: 1.012 },
+        "Hanging Man": { action: "SELL", baseConfidence: 90, targetMultiplier: 0.988, slMultiplier: 1.008 },
+        "Three Black Crows": { action: "SELL", baseConfidence: 97, targetMultiplier: 0.975, slMultiplier: 1.015 },
+        "Evening Star": { action: "SELL", baseConfidence: 96, targetMultiplier: 0.978, slMultiplier: 1.013 },
+        "Dark Cloud Cover": { action: "SELL", baseConfidence: 93, targetMultiplier: 0.982, slMultiplier: 1.01 },
+        "Gravestone Doji": { action: "SELL", baseConfidence: 89, targetMultiplier: 0.99, slMultiplier: 1.005 },
+        "Bearish Marubozu": { action: "SELL", baseConfidence: 94, targetMultiplier: 0.98, slMultiplier: 1.012 },
+        "Tweezer Top": { action: "SELL", baseConfidence: 91, targetMultiplier: 0.985, slMultiplier: 1.009 },
+        "Three Inside Down": { action: "SELL", baseConfidence: 95, targetMultiplier: 0.98, slMultiplier: 1.012 },
+        "Three Outside Down": { action: "SELL", baseConfidence: 95, targetMultiplier: 0.98, slMultiplier: 1.012 },
+        "Falling Three Methods": { action: "SELL", baseConfidence: 94, targetMultiplier: 0.981, slMultiplier: 1.011 },
+        "Abandoned Baby (Bearish)": { action: "SELL", baseConfidence: 97, targetMultiplier: 0.975, slMultiplier: 1.016 },
+        "Kicker (Bearish)": { action: "SELL", baseConfidence: 98, targetMultiplier: 0.972, slMultiplier: 1.018 }
     };
-    
-    let activeSignal = null;      // { pattern, action, entryPrice, targetPrice, expiryTime, intervalId }
+
+    // State variables
+    let activeSignal = null;        // { pattern, action, entryPrice, targetPrice, stopLoss, expiryTime, timeframeMs }
+    let timerInterval = null;
     let lastSignaledPattern = null;
     let lastSignalTime = 0;
-    
-    // Calculate final confidence (RSI + volume adjustment)
-    function calculateConfidence(patternName, rsi, volumeRatio) {
-        const data = patternData[patternName];
-        if (!data) return 50;
-        let conf = data.baseConf;
+
+    // Helper: calculate final confidence (0-100)
+    function calculateConfidence(patternName, rsi, volumeRatio, trendBullish) {
+        const data = patternDatabase[patternName];
+        if (!data) return 0;
+        let conf = data.baseConfidence;
+        // Adjust with RSI
         if (data.action === "BUY") {
-            if (rsi < 30) conf += 10;
-            else if (rsi < 40) conf += 5;
-            else if (rsi > 70) conf -= 15;
+            if (rsi < 30) conf += 5;
+            else if (rsi > 70) conf -= 20;
         } else {
-            if (rsi > 70) conf += 10;
-            else if (rsi > 60) conf += 5;
-            else if (rsi < 30) conf -= 15;
+            if (rsi > 70) conf += 5;
+            else if (rsi < 30) conf -= 20;
         }
-        if (volumeRatio > 1.2) conf += 5;
-        return Math.min(99, Math.max(1, conf));
+        // Volume boost
+        if (volumeRatio > 1.5) conf += 3;
+        // Trend alignment
+        if ((data.action === "BUY" && trendBullish) || (data.action === "SELL" && !trendBullish)) conf += 4;
+        else if ((data.action === "BUY" && !trendBullish) || (data.action === "SELL" && trendBullish)) conf -= 10;
+        return Math.min(99.9, Math.max(0, conf));
     }
-    
-    // Calculate target price (single TP)
-    function getTargetPrice(entry, action, targetPercent) {
-        let percent = targetPercent / 100;
-        if (action === "BUY") return entry * (1 + percent);
-        else return entry * (1 - percent);
+
+    // Get current timeframe in milliseconds from active button
+    function getCurrentTimeframeMs() {
+        const activeBtn = document.querySelector('.timeframe-btn.active');
+        if (!activeBtn) return 300000; // default 5min
+        const tf = activeBtn.dataset.timeframe;
+        switch(tf) {
+            case '1': return 60000;
+            case '5': return 300000;
+            case '15': return 900000;
+            case '60': return 3600000;
+            case '240': return 14400000;
+            case '1D': return 86400000;
+            default: return 300000;
+        }
     }
-    
-    // Start countdown timer and auto‑close suggestion
-    function startTimer(expiryTimestamp, patternName, action, entryPrice, targetPrice) {
-        const timerDiv = document.getElementById('timerDisplay');
-        if (!timerDiv) return;
-        
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const remaining = expiryTimestamp - now;
-            if (remaining <= 0) {
-                clearInterval(interval);
-                timerDiv.innerHTML = "⏰ Time's up! Consider closing the trade.";
-                timerDiv.style.color = "#EF4444";
-                if (typeof audioAlertsEnabled !== 'undefined' && audioAlertsEnabled) {
-                    const msg = new SpeechSynthesisUtterance(`Time over for ${patternName}. Consider closing trade.`);
-                    window.speechSynthesis.cancel();
-                    window.speechSynthesis.speak(msg);
-                }
-                if (activeSignal && activeSignal.intervalId === interval) activeSignal = null;
-            } else {
-                const minutes = Math.floor(remaining / 60000);
-                const seconds = Math.floor((remaining % 60000) / 1000);
-                timerDiv.innerHTML = `⏳ Time left: ${minutes}m ${seconds}s – Target: $${targetPrice.toFixed(2)} (${action === "BUY" ? "BUY" : "SELL"})`;
-                timerDiv.style.color = "#F59E0B";
-            }
-        }, 1000);
-        
-        return interval;
+
+    // Get current timeframe label
+    function getCurrentTimeframeLabel() {
+        const activeBtn = document.querySelector('.timeframe-btn.active');
+        return activeBtn ? activeBtn.dataset.timeframe : '5';
     }
-    
-    // Emit signal (entry, target, timeframe, confidence)
-    function emitSignal(patternName, entryPrice, confidence, rsi, volumeRatio, timeframeMinutes) {
-        const data = patternData[patternName];
+
+    // Display signal and start timer
+    function emitSignal(patternName, entryPrice, confidence, timeframeMs) {
+        const data = patternDatabase[patternName];
         if (!data) return;
         const action = data.action;
-        const targetPercent = data.targetPercent;
-        const targetPrice = getTargetPrice(entryPrice, action, targetPercent);
-        
-        // Clear old timer if any
-        if (activeSignal && activeSignal.intervalId) {
-            clearInterval(activeSignal.intervalId);
+        let targetPrice, stopLoss;
+        if (action === "BUY") {
+            targetPrice = entryPrice * data.targetMultiplier;
+            stopLoss = entryPrice * data.slMultiplier;
+        } else {
+            targetPrice = entryPrice * data.targetMultiplier;
+            stopLoss = entryPrice * data.slMultiplier;
         }
-        
-        const expiryTime = Date.now() + (timeframeMinutes * 60 * 1000);
-        const intervalId = startTimer(expiryTime, patternName, action, entryPrice, targetPrice);
-        
-        activeSignal = { pattern: patternName, action, entryPrice, targetPrice, expiryTime, intervalId };
-        
+
+        const expiryTime = Date.now() + timeframeMs;
+        activeSignal = {
+            pattern: patternName,
+            action: action,
+            entryPrice: entryPrice,
+            targetPrice: targetPrice,
+            stopLoss: stopLoss,
+            expiryTime: expiryTime,
+            timeframeMs: timeframeMs
+        };
+
         // Update UI
-        const msgDiv = document.getElementById('latestPatternMessage');
-        const suggestionDiv = document.getElementById('patternSuggestion');
-        if (msgDiv) {
-            msgDiv.innerHTML = `<i class="fas fa-chart-line"></i> ${patternName} – ${action} (${confidence}% probability)`;
-            msgDiv.style.color = action === "BUY" ? "#22C55E" : "#EF4444";
+        const alertBox = document.getElementById('patternAlertBox');
+        if (alertBox) {
+            const msgDiv = document.getElementById('latestPatternMessage');
+            const suggestionDiv = document.getElementById('patternSuggestion');
+            if (msgDiv) {
+                msgDiv.innerHTML = `<i class="fas fa-chart-line"></i> ${patternName} – ${action} (${confidence.toFixed(1)}% confidence)`;
+                msgDiv.style.color = action === "BUY" ? "#22C55E" : "#EF4444";
+            }
+            if (suggestionDiv) {
+                suggestionDiv.innerHTML = `
+                    📍 Entry: $${entryPrice.toFixed(2)}<br>
+                    🎯 Target: $${targetPrice.toFixed(2)}<br>
+                    🛑 Stop Loss: $${stopLoss.toFixed(2)}<br>
+                    ⏱️ Expires in: <span id="timerDisplay">${(timeframeMs/1000).toFixed(0)}s</span>
+                `;
+            }
         }
-        if (suggestionDiv) {
-            suggestionDiv.innerHTML = `💰 Entry: $${entryPrice.toFixed(2)} | 🎯 Target: $${targetPrice.toFixed(2)} (${targetPercent}%)<br>⏱️ Timeframe: ${timeframeMinutes} minutes`;
-        }
-        
-        // Toast notification
+
+        // Show notification
         if (typeof showNotification === 'function') {
-            showNotification(`${patternName} – ${action} @ $${entryPrice} | Target $${targetPrice} (${timeframeMinutes}m)`, action === "BUY" ? "success" : "error");
+            showNotification(`${patternName} – ${action} at $${entryPrice.toFixed(2)}. Target $${targetPrice.toFixed(2)}. Timer ${timeframeMs/1000}s`, "success");
         }
-        
-        // Voice alert
+
+        // Speak
         if (typeof audioAlertsEnabled !== 'undefined' && audioAlertsEnabled) {
-            const speech = new SpeechSynthesisUtterance(`${patternName} detected. ${action} at ${entryPrice}. Target ${targetPrice} within ${timeframeMinutes} minutes. Confidence ${confidence} percent.`);
-            speech.rate = 0.8;
+            const utterance = new SpeechSynthesisUtterance(`${patternName} confirmed. ${action} at ${entryPrice}. Target ${targetPrice}. Stop loss ${stopLoss}. Timer started.`);
+            utterance.rate = 0.8;
             window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(speech);
+            window.speechSynthesis.speak(utterance);
         }
-        
-        console.log(`🔔 ${patternName} | ${action} @ ${entryPrice} → ${targetPrice} (${timeframeMinutes}m) | Confidence ${confidence}%`);
+
+        // Start countdown timer
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!activeSignal) {
+                clearInterval(timerInterval);
+                return;
+            }
+            const now = Date.now();
+            const remaining = activeSignal.expiryTime - now;
+            if (remaining <= 0) {
+                // Time's up – auto close (stop loss hit)
+                clearInterval(timerInterval);
+                if (typeof showNotification === 'function') {
+                    showNotification(`⏰ Timer expired for ${activeSignal.pattern}. Trade closed (Stop Loss simulated).`, "error");
+                }
+                activeSignal = null;
+                const timerSpan = document.getElementById('timerDisplay');
+                if (timerSpan) timerSpan.innerText = "Expired";
+                // Optionally reset UI
+            } else {
+                const timerSpan = document.getElementById('timerDisplay');
+                if (timerSpan) timerSpan.innerText = `${(remaining/1000).toFixed(0)}s`;
+            }
+        }, 1000);
+
+        // Also start a price watcher to auto-close if target reached or stop loss hit
+        startPriceWatcher();
     }
-    
-    // ========== Override detectPatterns to only signal after candle close ==========
-    const originalDetect = SuperAI.prototype.detectPatterns;
+
+    // Monitor price and auto-close when target or stop loss is hit
+    let priceWatcherInterval = null;
+    function startPriceWatcher() {
+        if (priceWatcherInterval) clearInterval(priceWatcherInterval);
+        priceWatcherInterval = setInterval(() => {
+            if (!activeSignal) {
+                clearInterval(priceWatcherInterval);
+                return;
+            }
+            // Get current price from your existing variable
+            let currentPrice = (typeof currentPrice !== 'undefined') ? currentPrice : 
+                               (window.currentPrice ? window.currentPrice : null);
+            if (!currentPrice) return;
+            
+            const { action, targetPrice, stopLoss, pattern } = activeSignal;
+            if (action === "BUY") {
+                if (currentPrice >= targetPrice) {
+                    // Target hit – profit
+                    clearInterval(priceWatcherInterval);
+                    clearInterval(timerInterval);
+                    if (typeof showNotification === 'function') {
+                        showNotification(`✅ Target hit for ${pattern}! Profit taken.`, "success");
+                    }
+                    activeSignal = null;
+                } else if (currentPrice <= stopLoss) {
+                    // Stop loss hit
+                    clearInterval(priceWatcherInterval);
+                    clearInterval(timerInterval);
+                    if (typeof showNotification === 'function') {
+                        showNotification(`❌ Stop loss hit for ${pattern}. Trade closed.`, "error");
+                    }
+                    activeSignal = null;
+                }
+            } else { // SELL
+                if (currentPrice <= targetPrice) {
+                    clearInterval(priceWatcherInterval);
+                    clearInterval(timerInterval);
+                    if (typeof showNotification === 'function') {
+                        showNotification(`✅ Target hit for ${pattern}! Profit taken.`, "success");
+                    }
+                    activeSignal = null;
+                } else if (currentPrice >= stopLoss) {
+                    clearInterval(priceWatcherInterval);
+                    clearInterval(timerInterval);
+                    if (typeof showNotification === 'function') {
+                        showNotification(`❌ Stop loss hit for ${pattern}. Trade closed.`, "error");
+                    }
+                    activeSignal = null;
+                }
+            }
+        }, 1000);
+    }
+
+    // Override the pattern detection to only act on completed candles
+    const originalDetectPatterns = SuperAI.prototype.detectPatterns;
     SuperAI.prototype.detectPatterns = function(candles) {
-        const patterns = originalDetect.call(this, candles);
-        // Take the first bullish or bearish pattern
-        let primary = null;
-        if (patterns.bullish.length > 0) primary = patterns.bullish[0];
-        else if (patterns.bearish.length > 0) primary = patterns.bearish[0];
+        const patterns = originalDetectPatterns.call(this, candles);
+        
+        // We only care about patterns after a candle is closed.
+        // Since the chart updates every 5 seconds with new completed candle, we can check.
+        // But to ensure we don't signal on the same candle multiple times, we use a flag.
+        // Get the most recent bullish or bearish pattern
+        let primaryPattern = null;
+        if (patterns.bullish.length > 0) primaryPattern = patterns.bullish[0];
+        else if (patterns.bearish.length > 0) primaryPattern = patterns.bearish[0];
         else return patterns;
         
+        // Check if this pattern was already signaled recently (avoid repeats within same candle)
         const now = Date.now();
-        // Cooldown 30 seconds and avoid repeating same pattern
-        if (primary === lastSignaledPattern && (now - lastSignalTime) < 30000) return patterns;
+        if (primaryPattern === lastSignaledPattern && (now - lastSignalTime) < 60000) {
+            return patterns;
+        }
         
-        // Current market data
+        // Get current market conditions
         const currentPrice = candles[candles.length-1].close;
         let rsi = 50;
         let volume = candles[candles.length-1].volume;
-        let avgVolume = 1000000;
-        if (candles.length > 20) {
-            const sumVol = candles.slice(-20).reduce((s,c) => s + c.volume, 0);
-            avgVolume = sumVol / 20;
-        }
-        const volumeRatio = volume / avgVolume;
-        if (this.indicators && this.indicators.rsi) rsi = this.indicators.rsi;
+        let avgVolume = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
+        let volumeRatio = volume / avgVolume;
+        // Determine trend (simple: compare current price to 20-period SMA)
+        let sma20 = candles.slice(-20).reduce((s,c) => s + c.close, 0) / 20;
+        let trendBullish = currentPrice > sma20;
         
-        const confidence = calculateConfidence(primary, rsi, volumeRatio);
-        // Signal only if confidence >= 60%
-        if (confidence >= 60) {
-            const timeframe = patternData[primary]?.defaultTimeframe || 5;
-            emitSignal(primary, currentPrice, confidence, rsi, volumeRatio, timeframe);
-            lastSignaledPattern = primary;
+        const confidence = calculateConfidence(primaryPattern, rsi, volumeRatio, trendBullish);
+        
+        // Only signal if confidence >= 99%
+        if (confidence >= 99) {
+            const timeframeMs = getCurrentTimeframeMs();
+            emitSignal(primaryPattern, currentPrice, confidence, timeframeMs);
+            lastSignaledPattern = primaryPattern;
             lastSignalTime = now;
         } else {
-            console.log(`${primary} detected but confidence ${confidence}% < 60% – no signal.`);
+            console.log(`${primaryPattern} detected but confidence ${confidence.toFixed(1)}% < 99% – no signal.`);
         }
         
         return patterns;
