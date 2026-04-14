@@ -4039,12 +4039,15 @@
                 </div>
             </div>
 
-           <div id="patternAlertBox" style="background: linear-gradient(135deg, #0F1422, #1A1F33); border: 2px solid #22C55E; border-radius: 20px; padding: 15px; margin-bottom: 20px;">
+           <!-- PATTERN ALERT BOX (NEW) -->
+<div id="patternAlertBox" style="background: linear-gradient(135deg, #0F1422, #1A1F33); border: 2px solid #F59E0B; border-radius: 20px; padding: 15px; margin-bottom: 20px; animation: slideIn 0.5s ease;">
     <div style="display: flex; align-items: center; gap: 12px;">
-        <i class="fas fa-chart-line" style="font-size: 1.5rem; color: #22C55E;"></i>
-        <span style="font-weight: 600;">📊 ADVANCED ENSEMBLE SIGNAL (ATR + Multi‑TF)</span>
+        <i class="fas fa-chart-line" style="font-size: 1.5rem; color: #F59E0B;"></i>
+        <span style="font-weight: 600;">📢 LATEST PATTERN ALERT</span>
     </div>
-    <div id="latestPatternMessage" style="margin-top: 8px; font-size: 1.1rem; font-weight: 500;">Waiting for high-confidence ensemble...</div>
+    <div id="latestPatternMessage" style="margin-top: 8px; font-size: 1.1rem; font-weight: 500; color: #E5E7EB;">
+        Waiting for pattern...
+    </div>
     <div id="patternSuggestion" style="margin-top: 5px; font-size: 0.9rem; color: #94A3B8;"></div>
 </div>
             
@@ -6781,248 +6784,140 @@ window.autoClosePositions = function() {
     window.addEventListener('load', addHistoryButton);
 })();
 
-// ==================== ADVANCED ENSEMBLE SIGNAL (ATR-based, Multi-TF) ====================
+// ==================== PATTERN ALERT SYSTEM (42 PATTERNS) ====================
 (function() {
-    // ---------- CONFIG ----------
-    const ATR_MULTIPLIER_MIN = 0.2;   // 20% of ATR
-    const ATR_MULTIPLIER_MAX = 0.5;   // 50% of ATR
-    const STOP_ATR_MULTIPLIER = 0.15; // 15% of ATR as stop loss
-    const TIMEFRAME_MS = {
-        '1': 60000, '5': 300000, '15': 900000,
-        '60': 3600000, '240': 14400000, '1D': 86400000
+    // Mapping of pattern names to trading suggestion (BUY/SELL/NEUTRAL)
+    const patternAction = {
+        // BUY patterns (22)
+        "Hammer": "BUY",
+        "Bullish Engulfing": "BUY",
+        "Inverted Hammer": "BUY",
+        "Three White Soldiers": "BUY",
+        "Morning Star": "BUY",
+        "Piercing Line": "BUY",
+        "Dragonfly Doji": "BUY",
+        "Bullish Marubozu": "BUY",
+        "Tweezer Bottom": "BUY",
+        "Three Inside Up": "BUY",
+        "Three Outside Up": "BUY",
+        "Rising Three Methods": "BUY",
+        "Abandoned Baby (Bullish)": "BUY",
+        "Kicker (Bullish)": "BUY",
+        "Homing Pigeon": "BUY",
+        "Matching Low": "BUY",
+        "Ladder Bottom": "BUY",
+        "Bullish Belt-Hold Line": "BUY",
+        "On-Neck Line (Bullish)": "BUY",
+        "Separating Line (Bullish)": "BUY",
+        "Counterattack Line (Bullish)": "BUY",
+        "Messenger Dove": "BUY",
+
+        // SELL patterns (20)
+        "Shooting Star": "SELL",
+        "Bearish Engulfing": "SELL",
+        "Hanging Man": "SELL",
+        "Dark Cloud Cover": "SELL",
+        "Three Black Crows": "SELL",
+        "Evening Star": "SELL",
+        "Gravestone Doji": "SELL",
+        "Bearish Marubozu": "SELL",
+        "Tweezer Top": "SELL",
+        "Three Inside Down": "SELL",
+        "Three Outside Down": "SELL",
+        "Falling Three Methods": "SELL",
+        "Abandoned Baby (Bearish)": "SELL",
+        "Kicker (Bearish)": "SELL",
+        "Advance Block": "SELL",
+        "Three Identical Crows": "SELL",
+        "Bearish Belt-Hold Line": "SELL",
+        "In-Neck Line (Bearish)": "SELL",
+        "Separating Line (Bearish)": "SELL",
+        "Counterattack Line (Bearish)": "SELL",
+
+        // Neutral (no trade suggestion)
+        "Doji": "NEUTRAL",
+        "Long-Legged Doji": "NEUTRAL"
     };
-    
-    let activeSignal = null;
-    let timerInterval = null;
-    let priceWatcher = null;
-    let lastSignalTime = 0;
-    let lastSignalKey = '';
-    
-    // ---------- Helper: Calculate ATR from candles ----------
-    function calculateATR(candles, period = 14) {
-        if (candles.length < period + 1) return 100; // fallback
-        let trValues = [];
-        for (let i = 1; i < candles.length; i++) {
-            const high = candles[i].high;
-            const low = candles[i].low;
-            const prevClose = candles[i-1].close;
-            const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-            trValues.push(tr);
-        }
-        const recent = trValues.slice(-period);
-        return recent.reduce((a,b) => a + b, 0) / period;
-    }
-    
-    // ---------- Multi-timeframe trend alignment ----------
-    function getHigherTimeframeTrend(candles, currentTF) {
-        // Simplified: use daily trend if current TF <= 1h
-        if (currentTF === '1' || currentTF === '5' || currentTF === '15' || currentTF === '60') {
-            // Need daily data? We'll approximate using last 24h of data (assuming candles are in order)
-            if (candles.length > 24) {
-                const dailyCandles = candles.slice(-24);
-                const open = dailyCandles[0].open;
-                const close = dailyCandles[dailyCandles.length-1].close;
-                return close > open ? 'bullish' : 'bearish';
-            }
-        }
-        return 'neutral';
-    }
-    
-    // ---------- Ensemble confidence (0-100) ----------
-    function getEnsembleConfidence(candles, atr, rsi, volumeRatio, higherTrend) {
-        let score = 0;
-        let maxScore = 0;
-        
-        // 1. RSI (weight 30)
-        if (rsi < 30) { score += 30; }      // oversold
-        else if (rsi > 70) { score += 30; } // overbought
-        else if (rsi < 40) score += 15;
-        else if (rsi > 60) score += 15;
-        maxScore += 30;
-        
-        // 2. Volume surge (weight 25)
-        if (volumeRatio > 2.0) score += 25;
-        else if (volumeRatio > 1.5) score += 18;
-        else if (volumeRatio > 1.2) score += 10;
-        maxScore += 25;
-        
-        // 3. ATR expansion (weight 20) - higher ATR means stronger move
-        const prevATR = calculateATR(candles.slice(0, -1), 14);
-        const atrRatio = atr / prevATR;
-        if (atrRatio > 1.5) score += 20;
-        else if (atrRatio > 1.2) score += 12;
-        maxScore += 20;
-        
-        // 4. Multi-timeframe alignment (weight 15)
-        if (higherTrend !== 'neutral') score += 15;
-        maxScore += 15;
-        
-        // 5. Candlestick body ratio (weight 10)
-        const last = candles[candles.length-1];
-        const body = Math.abs(last.close - last.open);
-        const range = last.high - last.low;
-        const bodyRatio = body / range;
-        if (bodyRatio > 0.6) score += 10;
-        else if (bodyRatio > 0.4) score += 5;
-        maxScore += 10;
-        
-        const confidence = (score / maxScore) * 100;
-        return Math.min(99.9, confidence);
-    }
-    
-    // ---------- Determine direction (BUY/SELL/NEUTRAL) ----------
-    function getDirection(candles, rsi, higherTrend) {
-        const last = candles[candles.length-1];
-        const prev = candles[candles.length-2];
-        const isBullishCandle = last.close > last.open;
-        const isEngulfing = (prev.close < prev.open && last.close > prev.open && last.open < prev.close) ||
-                            (prev.close > prev.open && last.close < prev.open && last.open > prev.close);
-        // Bullish conditions
-        if ((rsi < 30 || higherTrend === 'bullish') && (isBullishCandle || isEngulfing)) return "BUY";
-        // Bearish conditions
-        if ((rsi > 70 || higherTrend === 'bearish') && (!isBullishCandle || isEngulfing)) return "SELL";
-        return "NEUTRAL";
-    }
-    
-    // ---------- Generate target based on ATR ----------
-    function getTargetFromATR(price, atr, direction) {
-        const minMove = atr * ATR_MULTIPLIER_MIN;
-        const maxMove = atr * ATR_MULTIPLIER_MAX;
-        const move = minMove + Math.random() * (maxMove - minMove);
-        if (direction === "BUY") return price + move;
-        else return price - move;
-    }
-    
-    function getStopFromATR(price, atr, direction) {
-        const stopDist = atr * STOP_ATR_MULTIPLIER;
-        if (direction === "BUY") return price - stopDist;
-        else return price + stopDist;
-    }
-    
-    // ---------- Emit signal ----------
-    function emitSignal(direction, entry, target, stopLoss, confidence, timeframeMs) {
-        const expiry = Date.now() + timeframeMs;
-        activeSignal = { direction, entry, target, stopLoss, expiry };
-        
-        const msgDiv = document.getElementById('latestPatternMessage');
-        const sugDiv = document.getElementById('patternSuggestion');
-        if (msgDiv) {
-            msgDiv.innerHTML = `🎯 ENSEMBLE SIGNAL – ${direction} (${confidence.toFixed(1)}% confidence)`;
-            msgDiv.style.color = direction === "BUY" ? "#22C55E" : "#EF4444";
-        }
-        if (sugDiv) {
-            sugDiv.innerHTML = `
-                📍 Entry: $${entry.toFixed(2)}<br>
-                🎯 Target: $${target.toFixed(2)} (${Math.abs(target-entry).toFixed(2)}$ move)<br>
-                🛑 Stop Loss: $${stopLoss.toFixed(2)}<br>
-                ⏱️ Expires in: <span id="timerDisplay">${(timeframeMs/1000).toFixed(0)}s</span>
-            `;
-        }
-        
-        if (typeof showNotification === 'function') {
-            showNotification(`${direction} signal at $${entry} → Target $${target.toFixed(2)}`, "success");
-        }
-        if (typeof audioAlertsEnabled !== 'undefined' && audioAlertsEnabled) {
-            const utterance = new SpeechSynthesisUtterance(`${direction} signal. Entry ${entry}. Target ${target.toFixed(2)}.`);
-            utterance.rate = 0.8;
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(utterance);
-        }
-        
-        startTimer(timeframeMs);
-        startPriceMonitor();
-    }
-    
-    function startTimer(ms) {
-        if (timerInterval) clearInterval(timerInterval);
-        timerInterval = setInterval(() => {
-            if (!activeSignal) { clearInterval(timerInterval); return; }
-            const remaining = activeSignal.expiry - Date.now();
-            if (remaining <= 0) {
-                clearInterval(timerInterval);
-                if (typeof showNotification === 'function')
-                    showNotification(`⏰ Timer expired. Trade closed.`, "error");
-                activeSignal = null;
-                const span = document.getElementById('timerDisplay');
-                if (span) span.innerText = "Expired";
-            } else {
-                const span = document.getElementById('timerDisplay');
-                if (span) span.innerText = `${(remaining/1000).toFixed(0)}s`;
-            }
-        }, 1000);
-    }
-    
-    function startPriceMonitor() {
-        if (priceWatcher) clearInterval(priceWatcher);
-        priceWatcher = setInterval(() => {
-            if (!activeSignal) { clearInterval(priceWatcher); return; }
-            let price = (typeof currentPrice !== 'undefined') ? currentPrice : window.currentPrice;
-            if (!price) return;
-            const { direction, target, stopLoss } = activeSignal;
-            if (direction === "BUY") {
-                if (price >= target) {
-                    clearAll(); showNotification(`✅ Target hit! Profit taken.`, "success");
-                } else if (price <= stopLoss) {
-                    clearAll(); showNotification(`❌ Stop loss hit.`, "error");
-                }
-            } else {
-                if (price <= target) {
-                    clearAll(); showNotification(`✅ Target hit! Profit taken.`, "success");
-                } else if (price >= stopLoss) {
-                    clearAll(); showNotification(`❌ Stop loss hit.`, "error");
-                }
-            }
-        }, 1000);
-    }
-    
-    function clearAll() {
-        if (priceWatcher) clearInterval(priceWatcher);
-        if (timerInterval) clearInterval(timerInterval);
-        activeSignal = null;
-    }
-    
-    function getCurrentTimeframe() {
-        const btn = document.querySelector('.timeframe-btn.active');
-        return btn ? btn.dataset.timeframe : '5';
-    }
-    
-    // ---------- Main detection hook (after candle close) ----------
-    const originalDetect = SuperAI.prototype.detectPatterns;
-    SuperAI.prototype.detectPatterns = function(candles) {
-        // First call original to keep UI updates (optional)
-        const patterns = originalDetect.call(this, candles);
-        
-        if (!candles || candles.length < 30) return patterns;
-        
-        const now = Date.now();
-        const signalKey = `${candles[candles.length-1].time}_${candles.length}`;
-        if (signalKey === lastSignalKey && (now - lastSignalTime) < 60000) return patterns;
-        
-        const currentTF = getCurrentTimeframe();
-        const atr = calculateATR(candles, 14);
-        const lastCandle = candles[candles.length-1];
-        const price = lastCandle.close;
-        const rsi = this.indicators?.rsi || 50;
-        const volume = lastCandle.volume;
-        const avgVol = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
-        const volRatio = volume / avgVol;
-        const higherTrend = getHigherTimeframeTrend(candles, currentTF);
-        
-        const confidence = getEnsembleConfidence(candles, atr, rsi, volRatio, higherTrend);
-        const direction = getDirection(candles, rsi, higherTrend);
-        
-        if (confidence >= 99 && direction !== "NEUTRAL") {
-            const target = getTargetFromATR(price, atr, direction);
-            const stopLoss = getStopFromATR(price, atr, direction);
-            const timeframeMs = TIMEFRAME_MS[currentTF] || 300000;
-            emitSignal(direction, price, target, stopLoss, confidence, timeframeMs);
-            lastSignalKey = signalKey;
-            lastSignalTime = now;
+
+    // Store previously detected patterns (to avoid repeating alerts)
+    let previousPatterns = { bullish: [], bearish: [], neutral: [] };
+
+    // Function to speak the alert
+    function speakPattern(patternName, action) {
+        if (typeof audioAlertsEnabled !== 'undefined' && !audioAlertsEnabled) return;
+        let message = "";
+        if (action === "BUY") {
+            message = `${patternName} detected. You can take a BUY trade now.`;
+        } else if (action === "SELL") {
+            message = `${patternName} detected. You can take a SELL trade now.`;
         } else {
-            console.log(`Ensemble confidence ${confidence.toFixed(1)}% (need 99) – no signal`);
+            message = `${patternName} detected. No clear trade signal.`;
         }
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.rate = 0.8;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Function to show notification and update the alert box
+    function notifyPattern(patternName, action) {
+        // Update the alert box in UI
+        const msgDiv = document.getElementById('latestPatternMessage');
+        const suggestionDiv = document.getElementById('patternSuggestion');
+        if (msgDiv) {
+            msgDiv.innerHTML = `<i class="fas fa-chart-line"></i> ${patternName}`;
+            msgDiv.style.color = action === "BUY" ? "#22C55E" : (action === "SELL" ? "#EF4444" : "#F59E0B");
+        }
+        if (suggestionDiv) {
+            if (action === "BUY") suggestionDiv.innerHTML = "✅ Suggestion: Consider BUY trade";
+            else if (action === "SELL") suggestionDiv.innerHTML = "🔴 Suggestion: Consider SELL trade";
+            else suggestionDiv.innerHTML = "⚪ No immediate trade signal";
+        }
+
+        // Also show a toast notification
+        let notifMsg = `📊 ${patternName} – ${action === "BUY" ? "🟢 BUY opportunity" : (action === "SELL" ? "🔴 SELL opportunity" : "⚪ Neutral")}`;
+        if (typeof showNotification === 'function') {
+            showNotification(notifMsg, action === "BUY" ? "success" : (action === "SELL" ? "error" : "info"));
+        } else {
+            console.log(notifMsg);
+        }
+
+        // Speak only for BUY/SELL (optional)
+        if (action !== "NEUTRAL") speakPattern(patternName, action);
+    }
+
+    // Override the detectPatterns method of SuperAI to also track changes
+    const originalDetectPatterns = SuperAI.prototype.detectPatterns;
+    SuperAI.prototype.detectPatterns = function(candles) {
+        const newPatterns = originalDetectPatterns.call(this, candles);
         
-        return patterns;
+        // Compare with previous patterns
+        const allNewPatterns = [];
+        // Check bullish patterns
+        newPatterns.bullish.forEach(p => {
+            if (!previousPatterns.bullish.includes(p)) allNewPatterns.push({ name: p, action: "BUY" });
+        });
+        newPatterns.bearish.forEach(p => {
+            if (!previousPatterns.bearish.includes(p)) allNewPatterns.push({ name: p, action: "SELL" });
+        });
+        newPatterns.neutral.forEach(p => {
+            if (!previousPatterns.neutral.includes(p)) allNewPatterns.push({ name: p, action: "NEUTRAL" });
+        });
+
+        // Trigger alert for each newly detected pattern
+        allNewPatterns.forEach(p => {
+            let action = patternAction[p.name] || p.action;
+            notifyPattern(p.name, action);
+        });
+
+        // Update previous patterns
+        previousPatterns = {
+            bullish: [...newPatterns.bullish],
+            bearish: [...newPatterns.bearish],
+            neutral: [...newPatterns.neutral]
+        };
+
+        return newPatterns;
     };
 })();
     </script>
