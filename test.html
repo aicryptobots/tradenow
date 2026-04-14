@@ -4051,7 +4051,7 @@
     <div id="patternSuggestion" style="margin-top: 5px; font-size: 0.9rem; color: #94A3B8;"></div>
 </div>
 
-           <!-- ==================== SMART ZONES WITH VOICE ALERTS ==================== -->
+          <!-- ==================== FIXED SMART ZONES (NO CHART CONFLICT) ==================== -->
 <style>
     .smart-zone-box {
         background: #0B0F1C;
@@ -4060,6 +4060,8 @@
         padding: 20px;
         margin: 20px 0;
         transition: all 0.3s;
+        position: relative;
+        z-index: 10;
     }
     .smart-zone-box:hover {
         border-color: #3B82F6;
@@ -4203,276 +4205,257 @@
         </div>
     </div>
     <div class="zone-footer">
-        <i class="fas fa-info-circle"></i> Voice alerts for strong buy/sell opportunities. Keep speaker on.
+        <i class="fas fa-info-circle"></i> Voice alerts for strong buy/sell. Keep speaker on.
     </div>
 </div>
 
 <script>
 (function() {
-    // ---------- Voice alert function (speaks only once per zone per session) ----------
-    let spokenAlerts = new Set(); // to avoid repeated spam
+    // Wait for page to fully load and chart to be ready
+    window.addEventListener('load', function() {
+        // Delay to ensure chart variables exist
+        setTimeout(initSmartZones, 2000);
+    });
     
-    function speakAlert(message, zoneKey) {
-        if (!window.speechSynthesis) return;
-        if (spokenAlerts.has(zoneKey)) return; // already spoken
-        spokenAlerts.add(zoneKey);
-        const utterance = new SpeechSynthesisUtterance(message);
-        utterance.rate = 0.85;
-        utterance.pitch = 1;
-        utterance.lang = 'bn-BD'; // Bengali voice if available, else English
-        window.speechSynthesis.cancel(); // clear previous
-        window.speechSynthesis.speak(utterance);
-        // Optional: remove from set after 60 seconds to allow repeat if zone changes
-        setTimeout(() => spokenAlerts.delete(zoneKey), 60000);
-    }
-    
-    // ---------- Binance data fetch ----------
-    async function fetchCandles(symbol, interval, limit = 100) {
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-        try {
-            const res = await fetch(url);
-            const data = await res.json();
-            return data.map(k => ({
-                time: k[0],
-                open: parseFloat(k[1]),
-                high: parseFloat(k[2]),
-                low: parseFloat(k[3]),
-                close: parseFloat(k[4]),
-                volume: parseFloat(k[5])
-            }));
-        } catch(e) {
-            console.warn("Binance fetch failed", e);
-            return null;
+    function initSmartZones() {
+        // Check if chart data is available (use global currentPrice or fetch from Binance)
+        let spokenAlerts = new Set();
+        
+        function speakAlert(message, zoneKey) {
+            if (!window.speechSynthesis) return;
+            if (spokenAlerts.has(zoneKey)) return;
+            spokenAlerts.add(zoneKey);
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.85;
+            utterance.pitch = 1;
+            utterance.lang = 'bn-BD';
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+            setTimeout(() => spokenAlerts.delete(zoneKey), 60000);
         }
-    }
-
-    function calculateATR(candles, period = 14) {
-        if (!candles || candles.length < period+1) return 100;
-        let tr = [];
-        for (let i = 1; i < candles.length; i++) {
-            const high = candles[i].high;
-            const low = candles[i].low;
-            const prevClose = candles[i-1].close;
-            tr.push(Math.max(high-low, Math.abs(high-prevClose), Math.abs(low-prevClose)));
+        
+        async function fetchCandles(symbol, interval, limit = 100) {
+            const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                return data.map(k => ({
+                    time: k[0],
+                    open: parseFloat(k[1]),
+                    high: parseFloat(k[2]),
+                    low: parseFloat(k[3]),
+                    close: parseFloat(k[4]),
+                    volume: parseFloat(k[5])
+                }));
+            } catch(e) {
+                console.warn("Zone fetch failed", e);
+                return null;
+            }
         }
-        const recent = tr.slice(-period);
-        return recent.reduce((a,b) => a+b, 0) / period;
-    }
-
-    function getZonesFromATR(price, atr) {
-        return {
-            buy: [
-                { low: price - atr * 0.8, high: price - atr * 0.4, type: 'support1' },
-                { low: price - atr * 1.4, high: price - atr * 1.0, type: 'support2' },
-                { low: price - atr * 2.2, high: price - atr * 1.8, type: 'support3' }
-            ],
-            sell: [
-                { low: price + atr * 0.4, high: price + atr * 0.8, type: 'resist1' },
-                { low: price + atr * 1.0, high: price + atr * 1.5, type: 'resist2' },
-                { low: price + atr * 1.8, high: price + atr * 2.5, type: 'resist3' }
-            ]
-        };
-    }
-
-    function analyzeZone(zoneLow, zoneHigh, candles, currentPrice, atr, isSupport) {
-        let touchCount = 0;
-        let totalVolumeAtTouch = 0;
-        for (let i = 0; i < candles.length; i++) {
-            const c = candles[i];
-            const lowInZone = (c.low >= zoneLow && c.low <= zoneHigh);
-            const highInZone = (c.high >= zoneLow && c.high <= zoneHigh);
-            const bodyInZone = (c.close >= zoneLow && c.close <= zoneHigh) || (c.open >= zoneLow && c.open <= zoneHigh);
-            let touched = false;
-            if (isSupport) {
-                if (lowInZone || bodyInZone) touched = true;
+        
+        function calculateATR(candles, period = 14) {
+            if (!candles || candles.length < period+1) return 100;
+            let tr = [];
+            for (let i = 1; i < candles.length; i++) {
+                const high = candles[i].high;
+                const low = candles[i].low;
+                const prevClose = candles[i-1].close;
+                tr.push(Math.max(high-low, Math.abs(high-prevClose), Math.abs(low-prevClose)));
+            }
+            const recent = tr.slice(-period);
+            return recent.reduce((a,b) => a+b, 0) / period;
+        }
+        
+        function getZonesFromATR(price, atr) {
+            return {
+                buy: [
+                    { low: price - atr * 0.8, high: price - atr * 0.4 },
+                    { low: price - atr * 1.4, high: price - atr * 1.0 },
+                    { low: price - atr * 2.2, high: price - atr * 1.8 }
+                ],
+                sell: [
+                    { low: price + atr * 0.4, high: price + atr * 0.8 },
+                    { low: price + atr * 1.0, high: price + atr * 1.5 },
+                    { low: price + atr * 1.8, high: price + atr * 2.5 }
+                ]
+            };
+        }
+        
+        function analyzeZone(zoneLow, zoneHigh, candles, currentPrice, atr, isSupport) {
+            let touchCount = 0;
+            let totalVolumeAtTouch = 0;
+            for (let i = 0; i < candles.length; i++) {
+                const c = candles[i];
+                const lowInZone = (c.low >= zoneLow && c.low <= zoneHigh);
+                const highInZone = (c.high >= zoneLow && c.high <= zoneHigh);
+                const bodyInZone = (c.close >= zoneLow && c.close <= zoneHigh) || (c.open >= zoneLow && c.open <= zoneHigh);
+                let touched = false;
+                if (isSupport) {
+                    if (lowInZone || bodyInZone) touched = true;
+                } else {
+                    if (highInZone || bodyInZone) touched = true;
+                }
+                if (touched) {
+                    touchCount++;
+                    totalVolumeAtTouch += c.volume;
+                }
+            }
+            const avgVolume = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
+            const volumeRatio = totalVolumeAtTouch / (touchCount * avgVolume + 0.01) || 1;
+            
+            const distanceToZone = isSupport ? (currentPrice - zoneHigh) : (zoneLow - currentPrice);
+            const nearBreak = Math.abs(distanceToZone) < atr * 0.3;
+            
+            let baseScore = 0;
+            if (touchCount >= 5) baseScore = 80;
+            else if (touchCount >= 3) baseScore = 65;
+            else if (touchCount >= 2) baseScore = 50;
+            else if (touchCount === 1) baseScore = 35;
+            else baseScore = 20;
+            
+            let volumeBonus = (volumeRatio - 1) * 10;
+            if (volumeBonus > 15) volumeBonus = 15;
+            if (volumeBonus < 0) volumeBonus = 0;
+            
+            let score = baseScore + volumeBonus;
+            if (nearBreak && !isSupport) score -= 25;
+            if (nearBreak && isSupport) score -= 30;
+            score = Math.min(100, Math.max(0, score));
+            
+            let strengthText, strengthClass, confirmationMsg, confirmationClass;
+            if (score >= 85) {
+                strengthText = "Very Strong";
+                strengthClass = "strength-very-strong";
+                confirmationMsg = "✅ Strong " + (isSupport ? "Buy" : "Sell") + " Opportunity – wait for 99% confidence & pattern";
+                confirmationClass = "strong";
+            } else if (score >= 70) {
+                strengthText = "Strong";
+                strengthClass = "strength-strong";
+                confirmationMsg = "⚠️ Moderate – Wait for confirmation";
+                confirmationClass = "moderate";
+            } else if (score >= 50) {
+                strengthText = "Moderate";
+                strengthClass = "strength-moderate";
+                confirmationMsg = "⚠️ Weak signal – Better to avoid";
+                confirmationClass = "weak";
             } else {
-                if (highInZone || bodyInZone) touched = true;
+                strengthText = "Weak";
+                strengthClass = "strength-weak";
+                confirmationMsg = "❌ No trade – Zone likely to break";
+                confirmationClass = "weak";
             }
-            if (touched) {
-                touchCount++;
-                totalVolumeAtTouch += c.volume;
+            
+            if (nearBreak && touchCount > 0) {
+                strengthText = "Likely to Break";
+                strengthClass = "strength-break";
+                confirmationMsg = "🔴 Avoid – High chance of breakdown";
+                confirmationClass = "weak";
+                score = Math.min(score, 30);
             }
-        }
-        const avgVolume = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
-        const volumeRatio = totalVolumeAtTouch / (touchCount * avgVolume + 0.01) || 1;
-        
-        const distanceToZone = isSupport ? (currentPrice - zoneHigh) : (zoneLow - currentPrice);
-        const nearBreak = Math.abs(distanceToZone) < atr * 0.3;
-        
-        let baseScore = 0;
-        if (touchCount >= 5) baseScore = 80;
-        else if (touchCount >= 3) baseScore = 65;
-        else if (touchCount >= 2) baseScore = 50;
-        else if (touchCount === 1) baseScore = 35;
-        else baseScore = 20;
-        
-        let volumeBonus = (volumeRatio - 1) * 10;
-        if (volumeBonus > 15) volumeBonus = 15;
-        if (volumeBonus < 0) volumeBonus = 0;
-        
-        let score = baseScore + volumeBonus;
-        if (nearBreak && !isSupport) score -= 25;
-        if (nearBreak && isSupport) score -= 30;
-        score = Math.min(100, Math.max(0, score));
-        
-        let strengthText, strengthClass, confirmationMsg, confirmationClass;
-        if (score >= 85) {
-            strengthText = "Very Strong";
-            strengthClass = "strength-very-strong";
-            confirmationMsg = "✅ Strong Buy Opportunity – wait for 99% confidence & pattern";
-            confirmationClass = "strong";
-        } else if (score >= 70) {
-            strengthText = "Strong";
-            strengthClass = "strength-strong";
-            confirmationMsg = "⚠️ Moderate – Wait for candle close & bullish pattern";
-            confirmationClass = "moderate";
-        } else if (score >= 50) {
-            strengthText = "Moderate";
-            strengthClass = "strength-moderate";
-            confirmationMsg = "⚠️ Weak signal – Better to avoid";
-            confirmationClass = "weak";
-        } else {
-            strengthText = "Weak";
-            strengthClass = "strength-weak";
-            confirmationMsg = "❌ No trade – Zone likely to break";
-            confirmationClass = "weak";
+            
+            return { score: Math.round(score), strengthText, strengthClass, confirmationMsg, confirmationClass, touchCount, nearBreak };
         }
         
-        if (nearBreak && touchCount > 0) {
-            strengthText = "Likely to Break";
-            strengthClass = "strength-break";
-            confirmationMsg = "🔴 Avoid – High chance of breakdown";
-            confirmationClass = "weak";
-            score = Math.min(score, 30);
-        }
-        
-        return { score: Math.round(score), strengthText, strengthClass, confirmationMsg, confirmationClass, touchCount, nearBreak };
-    }
-
-    let lastSpokenZones = { buy: [], sell: [] };
-    
-    async function refreshZonesForTimeframe(timeframe) {
-        const tfMap = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' };
-        const binanceInterval = tfMap[timeframe] || '5m';
-        const displayLabel = timeframe === '1'?'1m':timeframe==='5'?'5m':timeframe==='15'?'15m':timeframe==='60'?'1h':timeframe==='240'?'4h':'1D';
-        
-        const buyDiv = document.getElementById('buyZonesList');
-        const sellDiv = document.getElementById('sellZonesList');
-        if (buyDiv) buyDiv.innerHTML = '<div class="zone-item"><span class="loading-spinner-sm"></span> Analyzing zones...</div>';
-        if (sellDiv) sellDiv.innerHTML = '<div class="zone-item"><span class="loading-spinner-sm"></span> Analyzing zones...</div>';
-        
-        let symbol = (typeof currentSymbol !== 'undefined' && currentSymbol) ? currentSymbol : 'BTCUSDT';
-        if (!symbol.endsWith('USDT')) symbol += 'USDT';
-        
-        const candles = await fetchCandles(symbol, binanceInterval, 100);
-        if (!candles || candles.length < 30) {
-            const fallbackPrice = (typeof currentPrice !== 'undefined') ? currentPrice : 75000;
-            const fallbackAtr = 300;
-            const zones = getZonesFromATR(fallbackPrice, fallbackAtr);
-            const emptyAnalysis = { score: 0, strengthText: "N/A", strengthClass: "strength-weak", confirmationMsg: "Data unavailable", confirmationClass: "weak", touchCount: 0 };
-            updateDisplay(zones.buy.map(z => ({ ...z, analysis: emptyAnalysis })), zones.sell.map(z => ({ ...z, analysis: emptyAnalysis })), displayLabel);
-            return;
-        }
-        
-        const lastCandle = candles[candles.length-1];
-        const currentPrice = lastCandle.close;
-        const atr = calculateATR(candles, 14);
-        const zones = getZonesFromATR(currentPrice, atr);
-        
-        const buyZones = zones.buy.map(zone => {
-            const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, true);
-            return { ...zone, analysis };
-        });
-        const sellZones = zones.sell.map(zone => {
-            const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, false);
-            return { ...zone, analysis };
-        });
-        
-        // Voice alerts for strong buy zones (score >= 85) and strong sell zones (score >= 85)
-        // Also speak if zone becomes weak/break
-        for (let i = 0; i < buyZones.length; i++) {
-            const zone = buyZones[i];
-            const zoneKey = `buy_${displayLabel}_${i}_${zone.analysis.score}`;
-            if (zone.analysis.score >= 85) {
-                speakAlert(`Strong buy opportunity at support zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
-            } else if (zone.analysis.score < 50) {
-                speakAlert(`Warning: Support zone ${i+1} is weak. Likely to break. Avoid buying.`, zoneKey);
+        async function refreshZones() {
+            const activeBtn = document.querySelector('.timeframe-btn.active');
+            let timeframe = activeBtn ? activeBtn.dataset.timeframe : '5';
+            const tfMap = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' };
+            const binanceInterval = tfMap[timeframe] || '5m';
+            const displayLabel = timeframe === '1'?'1m':timeframe==='5'?'5m':timeframe==='15'?'15m':timeframe==='60'?'1h':timeframe==='240'?'4h':'1D';
+            
+            const buyDiv = document.getElementById('buyZonesList');
+            const sellDiv = document.getElementById('sellZonesList');
+            if (buyDiv) buyDiv.innerHTML = '<div class="zone-item"><span class="loading-spinner-sm"></span> Analyzing...</div>';
+            if (sellDiv) sellDiv.innerHTML = '<div class="zone-item"><span class="loading-spinner-sm"></span> Analyzing...</div>';
+            
+            let symbol = (typeof currentSymbol !== 'undefined' && currentSymbol) ? currentSymbol : 'BTCUSDT';
+            if (!symbol.endsWith('USDT')) symbol += 'USDT';
+            
+            const candles = await fetchCandles(symbol, binanceInterval, 100);
+            if (!candles || candles.length < 30) {
+                // fallback
+                if (buyDiv) buyDiv.innerHTML = '<div class="zone-item">No data</div>';
+                if (sellDiv) sellDiv.innerHTML = '<div class="zone-item">No data</div>';
+                return;
             }
-        }
-        for (let i = 0; i < sellZones.length; i++) {
-            const zone = sellZones[i];
-            const zoneKey = `sell_${displayLabel}_${i}_${zone.analysis.score}`;
-            if (zone.analysis.score >= 85) {
-                speakAlert(`Strong sell opportunity at resistance zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
-            } else if (zone.analysis.score < 50) {
-                speakAlert(`Warning: Resistance zone ${i+1} is weak. Likely to break upward. Avoid selling.`, zoneKey);
+            
+            const lastCandle = candles[candles.length-1];
+            const currentPrice = lastCandle.close;
+            const atr = calculateATR(candles, 14);
+            const zones = getZonesFromATR(currentPrice, atr);
+            
+            const buyZones = zones.buy.map(zone => {
+                const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, true);
+                return { ...zone, analysis };
+            });
+            const sellZones = zones.sell.map(zone => {
+                const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, false);
+                return { ...zone, analysis };
+            });
+            
+            // Voice alerts
+            for (let i = 0; i < buyZones.length; i++) {
+                const zone = buyZones[i];
+                const zoneKey = `buy_${displayLabel}_${i}_${zone.analysis.score}`;
+                if (zone.analysis.score >= 85) {
+                    speakAlert(`Strong buy opportunity at support zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
+                } else if (zone.analysis.score < 50) {
+                    speakAlert(`Warning: Support zone ${i+1} is weak. Likely to break. Avoid buying.`, zoneKey);
+                }
             }
-        }
-        
-        updateDisplay(buyZones, sellZones, displayLabel);
-    }
-    
-    function updateDisplay(buyZones, sellZones, timeframeLabel) {
-        const buyContainer = document.getElementById('buyZonesList');
-        const sellContainer = document.getElementById('sellZonesList');
-        const tfLabel = document.getElementById('zoneTimeframeLabel');
-        if (tfLabel) tfLabel.innerText = timeframeLabel;
-        
-        const formatPrice = (val) => `$${val.toFixed(2)}`;
-        
-        if (buyContainer) {
-            buyContainer.innerHTML = buyZones.map(z => `
-                <div class="zone-item ${z.analysis.strengthClass}">
-                    <div class="zone-level">
-                        <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
-                        <span class="zone-score">Score: ${z.analysis.score}%</span>
+            for (let i = 0; i < sellZones.length; i++) {
+                const zone = sellZones[i];
+                const zoneKey = `sell_${displayLabel}_${i}_${zone.analysis.score}`;
+                if (zone.analysis.score >= 85) {
+                    speakAlert(`Strong sell opportunity at resistance zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
+                } else if (zone.analysis.score < 50) {
+                    speakAlert(`Warning: Resistance zone ${i+1} is weak. Likely to break upward. Avoid selling.`, zoneKey);
+                }
+            }
+            
+            // Update UI
+            const formatPrice = (val) => `$${val.toFixed(2)}`;
+            if (buyDiv) {
+                buyDiv.innerHTML = buyZones.map(z => `
+                    <div class="zone-item ${z.analysis.strengthClass}">
+                        <div class="zone-level">
+                            <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
+                            <span class="zone-score">Score: ${z.analysis.score}%</span>
+                        </div>
+                        <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
+                        <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable'}</div>
                     </div>
-                    <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
-                    <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable distance'}</div>
-                </div>
-            `).join('');
-        }
-        if (sellContainer) {
-            sellContainer.innerHTML = sellZones.map(z => `
-                <div class="zone-item ${z.analysis.strengthClass}">
-                    <div class="zone-level">
-                        <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
-                        <span class="zone-score">Score: ${z.analysis.score}%</span>
+                `).join('');
+            }
+            if (sellDiv) {
+                sellDiv.innerHTML = sellZones.map(z => `
+                    <div class="zone-item ${z.analysis.strengthClass}">
+                        <div class="zone-level">
+                            <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
+                            <span class="zone-score">Score: ${z.analysis.score}%</span>
+                        </div>
+                        <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
+                        <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable'}</div>
                     </div>
-                    <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
-                    <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable distance'}</div>
-                </div>
-            `).join('');
+                `).join('');
+            }
+            document.getElementById('zoneTimeframeLabel').innerText = displayLabel;
         }
-    }
-    
-    function attachTimeframeListener() {
+        
+        // Initial refresh
+        refreshZones();
+        // Listen to timeframe button clicks without interfering
         const buttons = document.querySelectorAll('.timeframe-btn');
-        if (buttons.length === 0) {
-            setTimeout(attachTimeframeListener, 500);
-            return;
-        }
-        function getActiveTimeframe() {
-            const active = document.querySelector('.timeframe-btn.active');
-            return active ? active.dataset.timeframe : '5';
-        }
-        refreshZonesForTimeframe(getActiveTimeframe());
         buttons.forEach(btn => {
             btn.addEventListener('click', () => {
-                setTimeout(() => refreshZonesForTimeframe(getActiveTimeframe()), 100);
+                setTimeout(refreshZones, 200);
             });
         });
-        setInterval(() => refreshZonesForTimeframe(getActiveTimeframe()), 30000);
-    }
-    
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', attachTimeframeListener);
-    } else {
-        attachTimeframeListener();
+        // Refresh every 30 seconds
+        setInterval(refreshZones, 30000);
     }
 })();
 </script>
-
             
             <!-- LIVE SIGNALS -->
             <div class="signals-container">
