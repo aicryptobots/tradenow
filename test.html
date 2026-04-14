@@ -4051,7 +4051,7 @@
     <div id="patternSuggestion" style="margin-top: 5px; font-size: 0.9rem; color: #94A3B8;"></div>
 </div>
 
-            <!-- ==================== SMART ZONES WITH STRENGTH ANALYSIS (LARGE TEXT) ==================== -->
+           <!-- ==================== SMART ZONES WITH VOICE ALERTS ==================== -->
 <style>
     .smart-zone-box {
         background: #0B0F1C;
@@ -4114,15 +4114,11 @@
     .zone-title.sell { color: #EF4444; }
     .zone-item {
         margin-bottom: 18px;
-        padding: 12px;
+        padding: 14px;
         border-radius: 16px;
         background: rgba(26,31,51,0.5);
         transition: 0.2s;
         border-left: 4px solid transparent;
-    }
-    .zone-item:hover {
-        background: rgba(59,130,246,0.15);
-        transform: translateX(5px);
     }
     .zone-level {
         font-weight: 700;
@@ -4134,25 +4130,35 @@
         gap: 10px;
         align-items: baseline;
     }
-    .zone-desc {
+    .zone-score {
         font-size: 0.9rem;
-        color: #94A3B8;
-        margin-top: 6px;
-        line-height: 1.4;
-    }
-    .zone-strength {
-        font-size: 0.85rem;
         font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 30px;
         background: #1A1F33;
+        padding: 2px 8px;
+        border-radius: 20px;
         display: inline-block;
     }
-    .strength-very-strong { color: #22C55E; border-left-color: #22C55E; }
-    .strength-strong { color: #A3E635; border-left-color: #A3E635; }
-    .strength-moderate { color: #F59E0B; border-left-color: #F59E0B; }
-    .strength-weak { color: #F97316; border-left-color: #F97316; }
-    .strength-break { color: #EF4444; border-left-color: #EF4444; background: rgba(239,68,68,0.1); }
+    .zone-confirm {
+        margin-top: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        padding: 6px 10px;
+        border-radius: 12px;
+        background: rgba(0,0,0,0.3);
+    }
+    .zone-confirm.strong { color: #22C55E; background: rgba(34,197,94,0.1); }
+    .zone-confirm.moderate { color: #F59E0B; background: rgba(245,158,11,0.1); }
+    .zone-confirm.weak { color: #EF4444; background: rgba(239,68,68,0.1); }
+    .zone-desc {
+        font-size: 0.85rem;
+        color: #94A3B8;
+        margin-top: 6px;
+    }
+    .strength-very-strong { border-left-color: #22C55E; }
+    .strength-strong { border-left-color: #A3E635; }
+    .strength-moderate { border-left-color: #F59E0B; }
+    .strength-weak { border-left-color: #F97316; }
+    .strength-break { border-left-color: #EF4444; background: rgba(239,68,68,0.1); }
     .zone-footer {
         margin-top: 20px;
         padding: 12px;
@@ -4167,8 +4173,6 @@
         .smart-zone-box { padding: 16px; }
         .zone-item { padding: 10px; }
         .zone-level { font-size: 1rem; }
-        .zone-title { font-size: 1rem; }
-        .zone-header h3 { font-size: 1.2rem; }
     }
     .loading-spinner-sm {
         display: inline-block;
@@ -4185,7 +4189,7 @@
 
 <div class="smart-zone-box" id="smartZoneBox">
     <div class="zone-header">
-        <h3><i class="fas fa-chart-line"></i> Smart Zones + Strength Analysis</h3>
+        <h3><i class="fas fa-chart-line"></i> Smart Zones + Voice Alerts</h3>
         <span class="timeframe-indicator" id="zoneTimeframeLabel">5m</span>
     </div>
     <div class="zone-grid">
@@ -4199,13 +4203,30 @@
         </div>
     </div>
     <div class="zone-footer">
-        <i class="fas fa-info-circle"></i> Strength based on touches, volume, and price action. "Likely to Break" = high chance of breakdown.
+        <i class="fas fa-info-circle"></i> Voice alerts for strong buy/sell opportunities. Keep speaker on.
     </div>
 </div>
 
 <script>
 (function() {
-    // ----- Helper: Fetch candles from Binance -----
+    // ---------- Voice alert function (speaks only once per zone per session) ----------
+    let spokenAlerts = new Set(); // to avoid repeated spam
+    
+    function speakAlert(message, zoneKey) {
+        if (!window.speechSynthesis) return;
+        if (spokenAlerts.has(zoneKey)) return; // already spoken
+        spokenAlerts.add(zoneKey);
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.rate = 0.85;
+        utterance.pitch = 1;
+        utterance.lang = 'bn-BD'; // Bengali voice if available, else English
+        window.speechSynthesis.cancel(); // clear previous
+        window.speechSynthesis.speak(utterance);
+        // Optional: remove from set after 60 seconds to allow repeat if zone changes
+        setTimeout(() => spokenAlerts.delete(zoneKey), 60000);
+    }
+    
+    // ---------- Binance data fetch ----------
     async function fetchCandles(symbol, interval, limit = 100) {
         const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
         try {
@@ -4225,7 +4246,6 @@
         }
     }
 
-    // ----- ATR calculation -----
     function calculateATR(candles, period = 14) {
         if (!candles || candles.length < period+1) return 100;
         let tr = [];
@@ -4239,7 +4259,6 @@
         return recent.reduce((a,b) => a+b, 0) / period;
     }
 
-    // ----- Calculate dynamic support/resistance levels based on ATR -----
     function getZonesFromATR(price, atr) {
         return {
             buy: [
@@ -4255,11 +4274,9 @@
         };
     }
 
-    // ----- Analyze strength of a zone based on candle touches -----
-    function analyzeZoneStrength(zoneLow, zoneHigh, candles, currentPrice, atr, isSupport) {
+    function analyzeZone(zoneLow, zoneHigh, candles, currentPrice, atr, isSupport) {
         let touchCount = 0;
         let totalVolumeAtTouch = 0;
-        
         for (let i = 0; i < candles.length; i++) {
             const c = candles[i];
             const lowInZone = (c.low >= zoneLow && c.low <= zoneHigh);
@@ -4276,44 +4293,64 @@
                 totalVolumeAtTouch += c.volume;
             }
         }
-        
         const avgVolume = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
         const volumeRatio = totalVolumeAtTouch / (touchCount * avgVolume + 0.01) || 1;
-        
-        let strengthText = "";
-        let strengthClass = "";
-        let breakdownLikely = false;
         
         const distanceToZone = isSupport ? (currentPrice - zoneHigh) : (zoneLow - currentPrice);
         const nearBreak = Math.abs(distanceToZone) < atr * 0.3;
         
-        if (touchCount >= 5 && volumeRatio > 1.2 && !nearBreak) {
+        let baseScore = 0;
+        if (touchCount >= 5) baseScore = 80;
+        else if (touchCount >= 3) baseScore = 65;
+        else if (touchCount >= 2) baseScore = 50;
+        else if (touchCount === 1) baseScore = 35;
+        else baseScore = 20;
+        
+        let volumeBonus = (volumeRatio - 1) * 10;
+        if (volumeBonus > 15) volumeBonus = 15;
+        if (volumeBonus < 0) volumeBonus = 0;
+        
+        let score = baseScore + volumeBonus;
+        if (nearBreak && !isSupport) score -= 25;
+        if (nearBreak && isSupport) score -= 30;
+        score = Math.min(100, Math.max(0, score));
+        
+        let strengthText, strengthClass, confirmationMsg, confirmationClass;
+        if (score >= 85) {
             strengthText = "Very Strong";
             strengthClass = "strength-very-strong";
-        } else if (touchCount >= 3 && volumeRatio > 0.8 && !nearBreak) {
+            confirmationMsg = "✅ Strong Buy Opportunity – wait for 99% confidence & pattern";
+            confirmationClass = "strong";
+        } else if (score >= 70) {
             strengthText = "Strong";
             strengthClass = "strength-strong";
-        } else if (touchCount >= 2) {
+            confirmationMsg = "⚠️ Moderate – Wait for candle close & bullish pattern";
+            confirmationClass = "moderate";
+        } else if (score >= 50) {
             strengthText = "Moderate";
             strengthClass = "strength-moderate";
-        } else if (touchCount === 1) {
+            confirmationMsg = "⚠️ Weak signal – Better to avoid";
+            confirmationClass = "weak";
+        } else {
             strengthText = "Weak";
             strengthClass = "strength-weak";
-        } else {
-            strengthText = "Untested";
-            strengthClass = "strength-weak";
+            confirmationMsg = "❌ No trade – Zone likely to break";
+            confirmationClass = "weak";
         }
         
-        if (nearBreak && volumeRatio > 1.3 && touchCount > 0) {
+        if (nearBreak && touchCount > 0) {
             strengthText = "Likely to Break";
             strengthClass = "strength-break";
-            breakdownLikely = true;
+            confirmationMsg = "🔴 Avoid – High chance of breakdown";
+            confirmationClass = "weak";
+            score = Math.min(score, 30);
         }
         
-        return { strengthText, strengthClass, touchCount, breakdownLikely };
+        return { score: Math.round(score), strengthText, strengthClass, confirmationMsg, confirmationClass, touchCount, nearBreak };
     }
 
-    // ----- Refresh zones for current timeframe -----
+    let lastSpokenZones = { buy: [], sell: [] };
+    
     async function refreshZonesForTimeframe(timeframe) {
         const tfMap = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' };
         const binanceInterval = tfMap[timeframe] || '5m';
@@ -4332,9 +4369,8 @@
             const fallbackPrice = (typeof currentPrice !== 'undefined') ? currentPrice : 75000;
             const fallbackAtr = 300;
             const zones = getZonesFromATR(fallbackPrice, fallbackAtr);
-            updateZoneDisplayWithStrength(zones.buy.map(z => ({ ...z, strength: { strengthText: "Unknown", strengthClass: "strength-moderate", touchCount: 0 } })),
-                                         zones.sell.map(z => ({ ...z, strength: { strengthText: "Unknown", strengthClass: "strength-moderate", touchCount: 0 } })),
-                                         displayLabel);
+            const emptyAnalysis = { score: 0, strengthText: "N/A", strengthClass: "strength-weak", confirmationMsg: "Data unavailable", confirmationClass: "weak", touchCount: 0 };
+            updateDisplay(zones.buy.map(z => ({ ...z, analysis: emptyAnalysis })), zones.sell.map(z => ({ ...z, analysis: emptyAnalysis })), displayLabel);
             return;
         }
         
@@ -4343,19 +4379,40 @@
         const atr = calculateATR(candles, 14);
         const zones = getZonesFromATR(currentPrice, atr);
         
-        const buyZonesWithStrength = zones.buy.map(zone => {
-            const strength = analyzeZoneStrength(zone.low, zone.high, candles, currentPrice, atr, true);
-            return { ...zone, strength };
+        const buyZones = zones.buy.map(zone => {
+            const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, true);
+            return { ...zone, analysis };
         });
-        const sellZonesWithStrength = zones.sell.map(zone => {
-            const strength = analyzeZoneStrength(zone.low, zone.high, candles, currentPrice, atr, false);
-            return { ...zone, strength };
+        const sellZones = zones.sell.map(zone => {
+            const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, false);
+            return { ...zone, analysis };
         });
         
-        updateZoneDisplayWithStrength(buyZonesWithStrength, sellZonesWithStrength, displayLabel);
+        // Voice alerts for strong buy zones (score >= 85) and strong sell zones (score >= 85)
+        // Also speak if zone becomes weak/break
+        for (let i = 0; i < buyZones.length; i++) {
+            const zone = buyZones[i];
+            const zoneKey = `buy_${displayLabel}_${i}_${zone.analysis.score}`;
+            if (zone.analysis.score >= 85) {
+                speakAlert(`Strong buy opportunity at support zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
+            } else if (zone.analysis.score < 50) {
+                speakAlert(`Warning: Support zone ${i+1} is weak. Likely to break. Avoid buying.`, zoneKey);
+            }
+        }
+        for (let i = 0; i < sellZones.length; i++) {
+            const zone = sellZones[i];
+            const zoneKey = `sell_${displayLabel}_${i}_${zone.analysis.score}`;
+            if (zone.analysis.score >= 85) {
+                speakAlert(`Strong sell opportunity at resistance zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
+            } else if (zone.analysis.score < 50) {
+                speakAlert(`Warning: Resistance zone ${i+1} is weak. Likely to break upward. Avoid selling.`, zoneKey);
+            }
+        }
+        
+        updateDisplay(buyZones, sellZones, displayLabel);
     }
     
-    function updateZoneDisplayWithStrength(buyZones, sellZones, timeframeLabel) {
+    function updateDisplay(buyZones, sellZones, timeframeLabel) {
         const buyContainer = document.getElementById('buyZonesList');
         const sellContainer = document.getElementById('sellZonesList');
         const tfLabel = document.getElementById('zoneTimeframeLabel');
@@ -4365,29 +4422,30 @@
         
         if (buyContainer) {
             buyContainer.innerHTML = buyZones.map(z => `
-                <div class="zone-item ${z.strength.strengthClass}">
+                <div class="zone-item ${z.analysis.strengthClass}">
                     <div class="zone-level">
                         <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
-                        <span class="zone-strength ${z.strength.strengthClass}">${z.strength.strengthText}</span>
+                        <span class="zone-score">Score: ${z.analysis.score}%</span>
                     </div>
-                    <div class="zone-desc">${z.strength.touchCount} touch(es) | ${z.strength.breakdownLikely ? '⚠️ Breakdown risk high' : 'Hold potential'}</div>
+                    <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
+                    <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable distance'}</div>
                 </div>
             `).join('');
         }
         if (sellContainer) {
             sellContainer.innerHTML = sellZones.map(z => `
-                <div class="zone-item ${z.strength.strengthClass}">
+                <div class="zone-item ${z.analysis.strengthClass}">
                     <div class="zone-level">
                         <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
-                        <span class="zone-strength ${z.strength.strengthClass}">${z.strength.strengthText}</span>
+                        <span class="zone-score">Score: ${z.analysis.score}%</span>
                     </div>
-                    <div class="zone-desc">${z.strength.touchCount} touch(es) | ${z.strength.breakdownLikely ? '⚠️ Breakdown likely' : 'Resistance holding'}</div>
+                    <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
+                    <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable distance'}</div>
                 </div>
             `).join('');
         }
     }
     
-    // ----- Attach listeners -----
     function attachTimeframeListener() {
         const buttons = document.querySelectorAll('.timeframe-btn');
         if (buttons.length === 0) {
@@ -4414,56 +4472,6 @@
     }
 })();
 </script>
-            
-            <!-- RECOMMENDATION ENTRY BOX -->
-            <div class="recommendation-box" id="recommendationBox">
-                <div class="rec-header">
-                    <i class="fas fa-star"></i>
-                    <h2>RECOMMENDATION ENTRY</h2>
-                </div>
-                
-                <div class="rec-content">
-                    <div class="rec-support">
-                        <div class="title">
-                            <i class="fas fa-arrow-down"></i> SUPPORT ZONE (BUY)
-                        </div>
-                        <div class="price-range" id="supportRange">$66,763 - $66,800</div>
-                        <div class="type">Support is <span style="color:#22C55E; font-weight:600;">LOW</span> of range</div>
-                        <div class="breakout" id="breakoutUp">📈 Breakout Up: <span style="color:#22C55E;">75% chance</span></div>
-                        <div class="target" style="margin-top:8px; color:#94A3B8;">🎯 Target: <span style="color:#22C55E;" id="supportTarget2">$67,500 - $68,000</span></div>
-                    </div>
-                    
-                    <div class="rec-resistance">
-                        <div class="title">
-                            <i class="fas fa-arrow-up"></i> RESISTANCE ZONE (SELL)
-                        </div>
-                        <div class="price-range" id="resistanceRange">$67,150 - $67,180</div>
-                        <div class="type">Resistance is <span style="color:#EF4444; font-weight:600;">HIGH</span> of range</div>
-                        <div class="breakout" id="breakoutDown">📉 Breakout Down: <span style="color:#EF4444;">65% chance</span></div>
-                        <div class="target" style="margin-top:8px; color:#94A3B8;">🎯 Target: <span style="color:#EF4444;" id="resistanceTarget2">$66,500 - $66,200</span></div>
-                    </div>
-                    
-                    <div class="rec-current">
-                        <div class="status">
-                            <div>
-                                <span style="color:#94A3B8;">⚡ CURRENT ZONE:</span>
-                                <span class="zone" id="currentZone" style="color:#22C55E; margin-left:8px;">SUPPORT</span>
-                            </div>
-                            <div>
-                                <span style="color:#94A3B8;">Price:</span>
-                                <span style="color:white; font-weight:600; margin-left:5px;" id="currentZonePrice">$66,793</span>
-                            </div>
-                            <div>
-                                <span class="action action-buy" id="currentAction">CONSIDER BUY</span>
-                            </div>
-                        </div>
-                        <div class="rec-targets">
-                            <span>Support holds → Buy opportunity</span>
-                            <span>Resistance breaks → Sell opportunity</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
 
             
             <!-- LIVE SIGNALS -->
