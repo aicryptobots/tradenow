@@ -4051,13 +4051,13 @@
     <div id="patternSuggestion" style="margin-top: 5px; font-size: 0.9rem; color: #94A3B8;"></div>
 </div>
 
-            <!-- ==================== SMART ZONES WITH STRENGTH ANALYSIS ==================== -->
+            <!-- ==================== SMART ZONES WITH STRENGTH ANALYSIS (LARGE TEXT) ==================== -->
 <style>
     .smart-zone-box {
         background: #0B0F1C;
         border: 1px solid #2A3045;
-        border-radius: 20px;
-        padding: 16px;
+        border-radius: 24px;
+        padding: 20px;
         margin: 20px 0;
         transition: all 0.3s;
     }
@@ -4069,15 +4069,15 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
         border-bottom: 1px solid #2A3045;
-        padding-bottom: 10px;
+        padding-bottom: 12px;
         flex-wrap: wrap;
         gap: 10px;
     }
     .zone-header h3 {
         color: #3B82F6;
-        font-size: 1.1rem;
+        font-size: 1.4rem;
         margin: 0;
         display: flex;
         align-items: center;
@@ -4085,9 +4085,9 @@
     }
     .timeframe-indicator {
         background: #1A1F33;
-        padding: 4px 12px;
+        padding: 6px 14px;
         border-radius: 30px;
-        font-size: 0.75rem;
+        font-size: 0.9rem;
         font-weight: 600;
         color: #F59E0B;
         font-family: monospace;
@@ -4095,53 +4095,56 @@
     .zone-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 20px;
+        gap: 24px;
     }
     .zone-col {
         background: #03050A;
-        border-radius: 16px;
-        padding: 12px;
+        border-radius: 20px;
+        padding: 16px;
     }
     .zone-title {
         font-weight: 700;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
+        font-size: 1.2rem;
     }
     .zone-title.buy { color: #22C55E; }
     .zone-title.sell { color: #EF4444; }
     .zone-item {
-        margin-bottom: 14px;
-        padding: 10px;
-        border-radius: 12px;
-        background: rgba(26,31,51,0.4);
+        margin-bottom: 18px;
+        padding: 12px;
+        border-radius: 16px;
+        background: rgba(26,31,51,0.5);
         transition: 0.2s;
-        border-left: 3px solid transparent;
+        border-left: 4px solid transparent;
     }
     .zone-item:hover {
-        background: rgba(59,130,246,0.1);
-        transform: translateX(4px);
+        background: rgba(59,130,246,0.15);
+        transform: translateX(5px);
     }
     .zone-level {
         font-weight: 700;
-        font-size: 0.95rem;
+        font-size: 1.2rem;
         color: #E5E7EB;
         display: flex;
         justify-content: space-between;
         flex-wrap: wrap;
-        gap: 5px;
+        gap: 10px;
+        align-items: baseline;
     }
     .zone-desc {
-        font-size: 0.7rem;
+        font-size: 0.9rem;
         color: #94A3B8;
-        margin-top: 4px;
+        margin-top: 6px;
+        line-height: 1.4;
     }
     .zone-strength {
-        font-size: 0.7rem;
+        font-size: 0.85rem;
         font-weight: 600;
-        padding: 2px 6px;
-        border-radius: 20px;
+        padding: 4px 10px;
+        border-radius: 30px;
         background: #1A1F33;
         display: inline-block;
     }
@@ -4151,24 +4154,26 @@
     .strength-weak { color: #F97316; border-left-color: #F97316; }
     .strength-break { color: #EF4444; border-left-color: #EF4444; background: rgba(239,68,68,0.1); }
     .zone-footer {
-        margin-top: 15px;
-        padding: 8px;
+        margin-top: 20px;
+        padding: 12px;
         background: rgba(245,158,11,0.1);
-        border-radius: 12px;
+        border-radius: 16px;
         text-align: center;
-        font-size: 0.7rem;
+        font-size: 0.85rem;
         color: #F59E0B;
     }
     @media (max-width: 640px) {
-        .zone-grid { grid-template-columns: 1fr; gap: 12px; }
-        .smart-zone-box { padding: 12px; }
-        .zone-item { padding: 8px; }
-        .zone-level { font-size: 0.85rem; }
+        .zone-grid { grid-template-columns: 1fr; gap: 16px; }
+        .smart-zone-box { padding: 16px; }
+        .zone-item { padding: 10px; }
+        .zone-level { font-size: 1rem; }
+        .zone-title { font-size: 1rem; }
+        .zone-header h3 { font-size: 1.2rem; }
     }
     .loading-spinner-sm {
         display: inline-block;
-        width: 14px;
-        height: 14px;
+        width: 18px;
+        height: 18px;
         border: 2px solid #2A3045;
         border-top-color: #3B82F6;
         border-radius: 50%;
@@ -4194,7 +4199,7 @@
         </div>
     </div>
     <div class="zone-footer">
-        <i class="fas fa-info-circle"></i> Strength based on number of touches, volume, and current price action. "Likely to Break" means high chance of breakdown.
+        <i class="fas fa-info-circle"></i> Strength based on touches, volume, and price action. "Likely to Break" = high chance of breakdown.
     </div>
 </div>
 
@@ -4254,9 +4259,7 @@
     function analyzeZoneStrength(zoneLow, zoneHigh, candles, currentPrice, atr, isSupport) {
         let touchCount = 0;
         let totalVolumeAtTouch = 0;
-        let touches = [];
         
-        // Loop through candles to see if price touched the zone
         for (let i = 0; i < candles.length; i++) {
             const c = candles[i];
             const lowInZone = (c.low >= zoneLow && c.low <= zoneHigh);
@@ -4264,28 +4267,23 @@
             const bodyInZone = (c.close >= zoneLow && c.close <= zoneHigh) || (c.open >= zoneLow && c.open <= zoneHigh);
             let touched = false;
             if (isSupport) {
-                // Support: price bounced from below or touched from above
                 if (lowInZone || bodyInZone) touched = true;
             } else {
-                // Resistance: price touched from below
                 if (highInZone || bodyInZone) touched = true;
             }
             if (touched) {
                 touchCount++;
                 totalVolumeAtTouch += c.volume;
-                touches.push(c);
             }
         }
         
         const avgVolume = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
-        const volumeRatio = totalVolumeAtTouch / (touchCount * avgVolume) || 1;
+        const volumeRatio = totalVolumeAtTouch / (touchCount * avgVolume + 0.01) || 1;
         
-        // Determine strength
         let strengthText = "";
         let strengthClass = "";
         let breakdownLikely = false;
         
-        // Check if current price is very close to breaking the zone
         const distanceToZone = isSupport ? (currentPrice - zoneHigh) : (zoneLow - currentPrice);
         const nearBreak = Math.abs(distanceToZone) < atr * 0.3;
         
@@ -4306,7 +4304,6 @@
             strengthClass = "strength-weak";
         }
         
-        // If current price is testing the zone and volume is high, breakdown likely
         if (nearBreak && volumeRatio > 1.3 && touchCount > 0) {
             strengthText = "Likely to Break";
             strengthClass = "strength-break";
@@ -4316,7 +4313,7 @@
         return { strengthText, strengthClass, touchCount, breakdownLikely };
     }
 
-    // ----- Update UI with zones and strengths -----
+    // ----- Refresh zones for current timeframe -----
     async function refreshZonesForTimeframe(timeframe) {
         const tfMap = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' };
         const binanceInterval = tfMap[timeframe] || '5m';
@@ -4332,12 +4329,12 @@
         
         const candles = await fetchCandles(symbol, binanceInterval, 100);
         if (!candles || candles.length < 30) {
-            // fallback
             const fallbackPrice = (typeof currentPrice !== 'undefined') ? currentPrice : 75000;
             const fallbackAtr = 300;
             const zones = getZonesFromATR(fallbackPrice, fallbackAtr);
-            const fakeStrength = { strengthText: "Unknown", strengthClass: "strength-moderate", touchCount: 0 };
-            updateZoneDisplay(zones, fakeStrength, fakeStrength, displayLabel);
+            updateZoneDisplayWithStrength(zones.buy.map(z => ({ ...z, strength: { strengthText: "Unknown", strengthClass: "strength-moderate", touchCount: 0 } })),
+                                         zones.sell.map(z => ({ ...z, strength: { strengthText: "Unknown", strengthClass: "strength-moderate", touchCount: 0 } })),
+                                         displayLabel);
             return;
         }
         
@@ -4346,7 +4343,6 @@
         const atr = calculateATR(candles, 14);
         const zones = getZonesFromATR(currentPrice, atr);
         
-        // Analyze each zone
         const buyZonesWithStrength = zones.buy.map(zone => {
             const strength = analyzeZoneStrength(zone.low, zone.high, candles, currentPrice, atr, true);
             return { ...zone, strength };
@@ -4391,12 +4387,7 @@
         }
     }
     
-    // Fallback for old function
-    function updateZoneDisplay(buyZones, sellZones, strengthObj, sellStrength, timeframeLabel) {
-        // Not used in new version, but kept for compatibility
-    }
-    
-    // ----- Attach to timeframe buttons and coin changes -----
+    // ----- Attach listeners -----
     function attachTimeframeListener() {
         const buttons = document.querySelectorAll('.timeframe-btn');
         if (buttons.length === 0) {
@@ -4413,7 +4404,6 @@
                 setTimeout(() => refreshZonesForTimeframe(getActiveTimeframe()), 100);
             });
         });
-        // Refresh every 30 seconds
         setInterval(() => refreshZonesForTimeframe(getActiveTimeframe()), 30000);
     }
     
@@ -4424,11 +4414,6 @@
     }
 })();
 </script>
-    
-    <div style="margin-top: 15px; padding: 8px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; text-align: center; font-size: 0.75rem; color: #F59E0B;">
-        <i class="fas fa-info-circle"></i> Trade only when price reaches a zone AND a candlestick pattern confirms with ≥99% confidence.
-    </div>
-</div>
             
             <!-- RECOMMENDATION ENTRY BOX -->
             <div class="recommendation-box" id="recommendationBox">
