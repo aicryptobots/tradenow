@@ -4340,6 +4340,405 @@
 })();
 </script>
 
+            <!-- Place this anywhere, preferably at the end of <body> -->
+<div id="smartZoneRoot" style="margin: 20px 0;"></div>
+
+<script>
+(function() {
+    // Wait for page to load completely
+    window.addEventListener('load', function() {
+        // Create the zone box dynamically inside the container
+        const container = document.getElementById('smartZoneRoot');
+        if (!container) return;
+        
+        // Build HTML structure
+        container.innerHTML = `
+        <div class="smart-zone-box" id="smartZoneBox">
+            <div class="zone-header">
+                <h3><i class="fas fa-chart-line"></i> Smart Zones + Voice Alerts</h3>
+                <span class="timeframe-indicator" id="zoneTimeframeLabel">5m</span>
+            </div>
+            <div class="zone-grid">
+                <div class="zone-col">
+                    <div class="zone-title buy"><i class="fas fa-arrow-down"></i> BUY ZONES (Support)</div>
+                    <div id="buyZonesList">Loading...</div>
+                </div>
+                <div class="zone-col">
+                    <div class="zone-title sell"><i class="fas fa-arrow-up"></i> SELL ZONES (Resistance)</div>
+                    <div id="sellZonesList">Loading...</div>
+                </div>
+            </div>
+            <div class="zone-footer">
+                <i class="fas fa-info-circle"></i> Voice alerts for strong buy/sell. Keep speaker on.
+            </div>
+        </div>
+        `;
+        
+        // Now inject styles dynamically (so you don't need to add them separately)
+        const style = document.createElement('style');
+        style.textContent = `
+        .smart-zone-box {
+            background: #0B0F1C;
+            border: 1px solid #2A3045;
+            border-radius: 24px;
+            padding: 20px;
+            margin: 20px 0;
+            transition: all 0.3s;
+        }
+        .smart-zone-box:hover {
+            border-color: #3B82F6;
+            box-shadow: 0 10px 20px rgba(59,130,246,0.2);
+        }
+        .zone-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #2A3045;
+            padding-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .zone-header h3 {
+            color: #3B82F6;
+            font-size: 1.4rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .timeframe-indicator {
+            background: #1A1F33;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #F59E0B;
+            font-family: monospace;
+        }
+        .zone-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .zone-col {
+            background: #03050A;
+            border-radius: 20px;
+            padding: 16px;
+        }
+        .zone-title {
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.2rem;
+        }
+        .zone-title.buy { color: #22C55E; }
+        .zone-title.sell { color: #EF4444; }
+        .zone-item {
+            margin-bottom: 18px;
+            padding: 14px;
+            border-radius: 16px;
+            background: rgba(26,31,51,0.5);
+            transition: 0.2s;
+            border-left: 4px solid transparent;
+        }
+        .zone-level {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #E5E7EB;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: baseline;
+        }
+        .zone-score {
+            font-size: 0.9rem;
+            font-weight: 600;
+            background: #1A1F33;
+            padding: 2px 8px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+        .zone-confirm {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 6px 10px;
+            border-radius: 12px;
+            background: rgba(0,0,0,0.3);
+        }
+        .zone-confirm.strong { color: #22C55E; background: rgba(34,197,94,0.1); }
+        .zone-confirm.moderate { color: #F59E0B; background: rgba(245,158,11,0.1); }
+        .zone-confirm.weak { color: #EF4444; background: rgba(239,68,68,0.1); }
+        .zone-desc {
+            font-size: 0.85rem;
+            color: #94A3B8;
+            margin-top: 6px;
+        }
+        .strength-very-strong { border-left-color: #22C55E; }
+        .strength-strong { border-left-color: #A3E635; }
+        .strength-moderate { border-left-color: #F59E0B; }
+        .strength-weak { border-left-color: #F97316; }
+        .strength-break { border-left-color: #EF4444; background: rgba(239,68,68,0.1); }
+        .zone-footer {
+            margin-top: 20px;
+            padding: 12px;
+            background: rgba(245,158,11,0.1);
+            border-radius: 16px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: #F59E0B;
+        }
+        @media (max-width: 640px) {
+            .zone-grid { grid-template-columns: 1fr; gap: 16px; }
+            .smart-zone-box { padding: 16px; }
+            .zone-item { padding: 10px; }
+            .zone-level { font-size: 1rem; }
+        }
+        .loading-spinner-sm {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #2A3045;
+            border-top-color: #3B82F6;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-left: 8px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        `;
+        document.head.appendChild(style);
+        
+        // Now the main logic (same as before, but inside this function)
+        let spokenAlerts = new Set();
+        function speakAlert(message, zoneKey) {
+            if (!window.speechSynthesis) return;
+            if (spokenAlerts.has(zoneKey)) return;
+            spokenAlerts.add(zoneKey);
+            const utterance = new SpeechSynthesisUtterance(message);
+            utterance.rate = 0.85;
+            utterance.pitch = 1;
+            utterance.lang = 'bn-BD';
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+            setTimeout(() => spokenAlerts.delete(zoneKey), 60000);
+        }
+        
+        async function fetchCandles(symbol, interval, limit = 100) {
+            const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                return data.map(k => ({
+                    time: k[0],
+                    open: parseFloat(k[1]),
+                    high: parseFloat(k[2]),
+                    low: parseFloat(k[3]),
+                    close: parseFloat(k[4]),
+                    volume: parseFloat(k[5])
+                }));
+            } catch(e) {
+                console.warn("Zone fetch failed", e);
+                return null;
+            }
+        }
+        
+        function calculateATR(candles, period = 14) {
+            if (!candles || candles.length < period+1) return 100;
+            let tr = [];
+            for (let i = 1; i < candles.length; i++) {
+                const high = candles[i].high;
+                const low = candles[i].low;
+                const prevClose = candles[i-1].close;
+                tr.push(Math.max(high-low, Math.abs(high-prevClose), Math.abs(low-prevClose)));
+            }
+            const recent = tr.slice(-period);
+            return recent.reduce((a,b) => a+b, 0) / period;
+        }
+        
+        function getZonesFromATR(price, atr) {
+            return {
+                buy: [
+                    { low: price - atr * 0.8, high: price - atr * 0.4 },
+                    { low: price - atr * 1.4, high: price - atr * 1.0 },
+                    { low: price - atr * 2.2, high: price - atr * 1.8 }
+                ],
+                sell: [
+                    { low: price + atr * 0.4, high: price + atr * 0.8 },
+                    { low: price + atr * 1.0, high: price + atr * 1.5 },
+                    { low: price + atr * 1.8, high: price + atr * 2.5 }
+                ]
+            };
+        }
+        
+        function analyzeZone(zoneLow, zoneHigh, candles, currentPrice, atr, isSupport) {
+            let touchCount = 0;
+            let totalVolumeAtTouch = 0;
+            for (let i = 0; i < candles.length; i++) {
+                const c = candles[i];
+                const lowInZone = (c.low >= zoneLow && c.low <= zoneHigh);
+                const highInZone = (c.high >= zoneLow && c.high <= zoneHigh);
+                const bodyInZone = (c.close >= zoneLow && c.close <= zoneHigh) || (c.open >= zoneLow && c.open <= zoneHigh);
+                let touched = false;
+                if (isSupport) {
+                    if (lowInZone || bodyInZone) touched = true;
+                } else {
+                    if (highInZone || bodyInZone) touched = true;
+                }
+                if (touched) {
+                    touchCount++;
+                    totalVolumeAtTouch += c.volume;
+                }
+            }
+            const avgVolume = candles.slice(-20).reduce((s,c) => s + c.volume, 0) / 20;
+            const volumeRatio = totalVolumeAtTouch / (touchCount * avgVolume + 0.01) || 1;
+            const distanceToZone = isSupport ? (currentPrice - zoneHigh) : (zoneLow - currentPrice);
+            const nearBreak = Math.abs(distanceToZone) < atr * 0.3;
+            
+            let baseScore = 0;
+            if (touchCount >= 5) baseScore = 80;
+            else if (touchCount >= 3) baseScore = 65;
+            else if (touchCount >= 2) baseScore = 50;
+            else if (touchCount === 1) baseScore = 35;
+            else baseScore = 20;
+            
+            let volumeBonus = (volumeRatio - 1) * 10;
+            if (volumeBonus > 15) volumeBonus = 15;
+            if (volumeBonus < 0) volumeBonus = 0;
+            let score = baseScore + volumeBonus;
+            if (nearBreak && !isSupport) score -= 25;
+            if (nearBreak && isSupport) score -= 30;
+            score = Math.min(100, Math.max(0, score));
+            
+            let strengthText, strengthClass, confirmationMsg, confirmationClass;
+            if (score >= 85) {
+                strengthText = "Very Strong";
+                strengthClass = "strength-very-strong";
+                confirmationMsg = "✅ Strong " + (isSupport ? "Buy" : "Sell") + " Opportunity – wait for 99% confidence & pattern";
+                confirmationClass = "strong";
+            } else if (score >= 70) {
+                strengthText = "Strong";
+                strengthClass = "strength-strong";
+                confirmationMsg = "⚠️ Moderate – Wait for confirmation";
+                confirmationClass = "moderate";
+            } else if (score >= 50) {
+                strengthText = "Moderate";
+                strengthClass = "strength-moderate";
+                confirmationMsg = "⚠️ Weak signal – Better to avoid";
+                confirmationClass = "weak";
+            } else {
+                strengthText = "Weak";
+                strengthClass = "strength-weak";
+                confirmationMsg = "❌ No trade – Zone likely to break";
+                confirmationClass = "weak";
+            }
+            if (nearBreak && touchCount > 0) {
+                strengthText = "Likely to Break";
+                strengthClass = "strength-break";
+                confirmationMsg = "🔴 Avoid – High chance of breakdown";
+                confirmationClass = "weak";
+                score = Math.min(score, 30);
+            }
+            return { score: Math.round(score), strengthText, strengthClass, confirmationMsg, confirmationClass, touchCount, nearBreak };
+        }
+        
+        async function refreshZones() {
+            const activeBtn = document.querySelector('.timeframe-btn.active');
+            let timeframe = activeBtn ? activeBtn.dataset.timeframe : '5';
+            const tfMap = { '1':'1m','5':'5m','15':'15m','60':'1h','240':'4h','1D':'1d' };
+            const binanceInterval = tfMap[timeframe] || '5m';
+            const displayLabel = timeframe === '1'?'1m':timeframe==='5'?'5m':timeframe==='15'?'15m':timeframe==='60'?'1h':timeframe==='240'?'4h':'1D';
+            
+            const buyDiv = document.getElementById('buyZonesList');
+            const sellDiv = document.getElementById('sellZonesList');
+            if (buyDiv) buyDiv.innerHTML = '<div class="zone-item"><span class="loading-spinner-sm"></span> Analyzing...</div>';
+            if (sellDiv) sellDiv.innerHTML = '<div class="zone-item"><span class="loading-spinner-sm"></span> Analyzing...</div>';
+            
+            let symbol = (typeof currentSymbol !== 'undefined' && currentSymbol) ? currentSymbol : 'BTCUSDT';
+            if (!symbol.endsWith('USDT')) symbol += 'USDT';
+            
+            const candles = await fetchCandles(symbol, binanceInterval, 100);
+            if (!candles || candles.length < 30) {
+                if (buyDiv) buyDiv.innerHTML = '<div class="zone-item">No data</div>';
+                if (sellDiv) sellDiv.innerHTML = '<div class="zone-item">No data</div>';
+                return;
+            }
+            const lastCandle = candles[candles.length-1];
+            const currentPrice = lastCandle.close;
+            const atr = calculateATR(candles, 14);
+            const zones = getZonesFromATR(currentPrice, atr);
+            
+            const buyZones = zones.buy.map(zone => {
+                const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, true);
+                return { ...zone, analysis };
+            });
+            const sellZones = zones.sell.map(zone => {
+                const analysis = analyzeZone(zone.low, zone.high, candles, currentPrice, atr, false);
+                return { ...zone, analysis };
+            });
+            
+            // voice alerts
+            for (let i = 0; i < buyZones.length; i++) {
+                const zone = buyZones[i];
+                const zoneKey = `buy_${displayLabel}_${i}_${zone.analysis.score}`;
+                if (zone.analysis.score >= 85) {
+                    speakAlert(`Strong buy opportunity at support zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
+                } else if (zone.analysis.score < 50) {
+                    speakAlert(`Warning: Support zone ${i+1} is weak. Likely to break. Avoid buying.`, zoneKey);
+                }
+            }
+            for (let i = 0; i < sellZones.length; i++) {
+                const zone = sellZones[i];
+                const zoneKey = `sell_${displayLabel}_${i}_${zone.analysis.score}`;
+                if (zone.analysis.score >= 85) {
+                    speakAlert(`Strong sell opportunity at resistance zone ${i+1}. Price range ${zone.low.toFixed(0)} to ${zone.high.toFixed(0)} dollars. Score ${zone.analysis.score} percent. Wait for pattern confirmation.`, zoneKey);
+                } else if (zone.analysis.score < 50) {
+                    speakAlert(`Warning: Resistance zone ${i+1} is weak. Likely to break upward. Avoid selling.`, zoneKey);
+                }
+            }
+            
+            const formatPrice = (val) => `$${val.toFixed(2)}`;
+            if (buyDiv) {
+                buyDiv.innerHTML = buyZones.map(z => `
+                    <div class="zone-item ${z.analysis.strengthClass}">
+                        <div class="zone-level">
+                            <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
+                            <span class="zone-score">Score: ${z.analysis.score}%</span>
+                        </div>
+                        <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
+                        <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable'}</div>
+                    </div>
+                `).join('');
+            }
+            if (sellDiv) {
+                sellDiv.innerHTML = sellZones.map(z => `
+                    <div class="zone-item ${z.analysis.strengthClass}">
+                        <div class="zone-level">
+                            <span>${formatPrice(z.low)} – ${formatPrice(z.high)}</span>
+                            <span class="zone-score">Score: ${z.analysis.score}%</span>
+                        </div>
+                        <div class="zone-confirm ${z.analysis.confirmationClass}">${z.analysis.confirmationMsg}</div>
+                        <div class="zone-desc">${z.analysis.touchCount} touch(es) | ${z.analysis.nearBreak ? '⚠️ Price near zone' : 'Stable'}</div>
+                    </div>
+                `).join('');
+            }
+            const tfLabel = document.getElementById('zoneTimeframeLabel');
+            if (tfLabel) tfLabel.innerText = displayLabel;
+        }
+        
+        refreshZones();
+        const buttons = document.querySelectorAll('.timeframe-btn');
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => setTimeout(refreshZones, 200));
+        });
+        setInterval(refreshZones, 30000);
+    });
+})();
+</script>
+
 <!-- RECOMMENDATION ENTRY BOX -->
             <div class="recommendation-box" id="recommendationBox">
                 <div class="rec-header">
