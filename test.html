@@ -3924,18 +3924,350 @@
                     </div>
                 </div>
 
-                         <!-- Sidebar -->
+                       <!-- ==================== COMPLETE SIDEBAR WITH TRADING PANEL + NEWS ==================== -->
 <div class="sidebar">
-    <!-- Trading Panel -->
+    <!-- Trading Panel (আপনার পুরোনো কোড) -->
     <div class="trading-panel">
-        ... (আপনার পুরোনো কোড) ...
+        <div class="panel-header">
+            <h3>💰 TRADING PANEL</h3>
+        </div>
+        
+        <!-- Support/Resistance -->
+        <div class="level-box">
+            <div class="level-item">
+                <div class="level-label">Support</div>
+                <div class="level-value support" id="supportLevel">$66,763</div>
+            </div>
+            <div class="level-item">
+                <div class="level-label">Resistance</div>
+                <div class="level-value resistance" id="resistanceLevel">$67,180</div>
+            </div>
+        </div>
+        
+        <!-- Current Price -->
+        <div class="current-price-large">
+            <div class="label">Current Price</div>
+            <div class="value" id="currentPriceLarge">$66,793</div>
+        </div>
+        
+        <!-- Trading Stats -->
+        <div class="trading-stats">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Trades</div>
+                    <div class="stat-value" id="totalTrades">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Win Rate</div>
+                    <div class="stat-value win" id="winRate">99.7%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Profit</div>
+                    <div class="stat-value win" id="totalProfit">$0.00</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Accuracy</div>
+                    <div class="stat-value win" id="accuracy">99.7%</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Demo Trading -->
+        <div class="demo-trading">
+            <div class="balance-info">
+                <div class="balance-item">
+                    <div class="balance-label">Balance</div>
+                    <div class="balance-value" id="balance">$10,000.00</div>
+                </div>
+                <div class="balance-item">
+                    <div class="balance-label">P&L</div>
+                    <div class="balance-value" id="totalPnl">$0.00</div>
+                </div>
+            </div>
+            
+            <!-- Margin Control -->
+            <div class="margin-control">
+                <div class="margin-header">
+                    <span class="margin-label">Leverage</span>
+                    <span class="margin-value" id="leverageValue">5X</span>
+                </div>
+                <input type="range" class="margin-slider" id="leverageSlider" min="1" max="10" value="5" step="1">
+                <div class="margin-levels">
+                    <span class="margin-level" onclick="setLeverage(1)">1X</span>
+                    <span class="margin-level" onclick="setLeverage(2)">2X</span>
+                    <span class="margin-level" onclick="setLeverage(3)">3X</span>
+                    <span class="margin-level" onclick="setLeverage(4)">4X</span>
+                    <span class="margin-level active" onclick="setLeverage(5)">5X</span>
+                    <span class="margin-level" onclick="setLeverage(6)">6X</span>
+                    <span class="margin-level" onclick="setLeverage(7)">7X</span>
+                    <span class="margin-level" onclick="setLeverage(8)">8X</span>
+                    <span class="margin-level" onclick="setLeverage(9)">9X</span>
+                    <span class="margin-level" onclick="setLeverage(10)">10X</span>
+                </div>
+                <div class="margin-info">
+                    <span>Size: <span id="positionSize">$500</span></span>
+                    <span>Margin: <span id="marginRequired">$100</span></span>
+                </div>
+            </div>
+            
+            <div class="trade-inputs">
+                <input type="number" class="trade-input" id="tradeAmount" value="100" placeholder="Amount">
+            </div>
+            
+            <div class="trade-buttons">
+                <button class="trade-btn buy" onclick="executeTrade('buy')">🟢 BUY <span class="btn-subtitle">Follow Signal</span></button>
+                <button class="trade-btn sell" onclick="executeTrade('sell')">🔴 SELL <span class="btn-subtitle">Follow Signal</span></button>
+            </div>
+            
+            <div>
+                <h4 style="margin-bottom:8px; font-size:0.9rem;">Open Positions</h4>
+                <div class="positions-list" id="openPositions">
+                    <div style="text-align:center; color:#94A3B8; padding:10px;">No open positions</div>
+                </div>
+            </div>
+        </div>
+    </div> <!-- end trading-panel -->
+
+    <!-- ==================== SIDEBAR NEWS FEATURE ==================== -->
+    <div class="sidebar-news" id="sidebarNews">
+        <div class="news-header">
+            <h4><i class="fas fa-newspaper"></i> Crypto News Sentiment</h4>
+            <span class="loading-spinner-sm" id="sidebarNewsSpinner" style="display:none;"></span>
+        </div>
+        <div class="sentiment-mini">
+            <div class="sentiment-mini-item bullish">
+                <div class="label">BULLISH</div>
+                <div class="percent" id="sidebarBullishPercent">0%</div>
+            </div>
+            <div class="sentiment-mini-item bearish">
+                <div class="label">BEARISH</div>
+                <div class="percent" id="sidebarBearishPercent">0%</div>
+            </div>
+        </div>
+        <div class="news-list" id="sidebarNewsList">Loading news...</div>
     </div>
-    
-    <!-- এখানে নিউজ ফিচার যোগ করুন (ট্রেডিং প্যানেলের ঠিক নিচে) -->
-    <div class="sidebar-news">
-        ... (নিউজ ফিচারের ভিতরের HTML) ...
-    </div>
-</div>
+
+    <style>
+        /* Sidebar-optimized news styles (already included in previous message) */
+        .sidebar-news {
+            background: #0B0F1C;
+            border: 1px solid #2A3045;
+            border-radius: 20px;
+            padding: 12px;
+            margin-top: 16px;
+        }
+        .sidebar-news .news-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #2A3045;
+        }
+        .sidebar-news .news-header h4 {
+            color: #3B82F6;
+            font-size: 0.9rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .sidebar-news .sentiment-mini {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .sidebar-news .sentiment-mini-item {
+            flex: 1;
+            background: #03050A;
+            border-radius: 12px;
+            padding: 6px;
+            text-align: center;
+        }
+        .sidebar-news .sentiment-mini-item .label {
+            font-size: 0.6rem;
+            color: #94A3B8;
+        }
+        .sidebar-news .sentiment-mini-item .percent {
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .sidebar-news .sentiment-mini-item.bullish .percent { color: #22C55E; }
+        .sidebar-news .sentiment-mini-item.bearish .percent { color: #EF4444; }
+        .sidebar-news .news-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 8px;
+        }
+        .sidebar-news .news-item {
+            padding: 8px;
+            border-bottom: 1px solid #2A3045;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .sidebar-news .news-item:hover {
+            background: #1A1F33;
+            transform: translateX(2px);
+        }
+        .sidebar-news .news-title {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #E5E7EB;
+            line-height: 1.3;
+        }
+        .sidebar-news .news-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.65rem;
+            color: #94A3B8;
+        }
+        .sidebar-news .news-badge {
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+        .sidebar-news .news-badge.bullish {
+            background: rgba(34,197,94,0.2);
+            color: #22C55E;
+            border: 1px solid #22C55E;
+        }
+        .sidebar-news .news-badge.bearish {
+            background: rgba(239,68,68,0.2);
+            color: #EF4444;
+            border: 1px solid #EF4444;
+        }
+        .sidebar-news .news-badge.neutral {
+            background: rgba(245,158,11,0.2);
+            color: #F59E0B;
+            border: 1px solid #F59E0B;
+        }
+        .sidebar-news .translate-btn {
+            background: transparent;
+            border: none;
+            color: #3B82F6;
+            font-size: 0.6rem;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 6px;
+        }
+        .sidebar-news .translate-btn:hover {
+            text-decoration: underline;
+        }
+        .sidebar-news .loading-spinner-sm {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #2A3045;
+            border-top-color: #3B82F6;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+
+    <script>
+    (function() {
+        // IMPORTANT: Replace with your actual CoinGecko API key
+        const API_KEY = 'YOUR_API_KEY_HERE';
+        let allNews = [];
+
+        const bullishKeywords = [
+            'surge', 'gain', 'upgrade', 'partnership', 'approval', 'bullish', 'positive', 'rally', 'breakout',
+            'all-time high', 'ATH', 'institutional', 'ETF', 'adoption', 'launch', 'mainnet', 'buy',
+            'green', 'growth', 'profit', 'win', 'success', 'milestone', 'support', 'rise', 'higher', 'moon'
+        ];
+        const bearishKeywords = [
+            'crash', 'decline', 'drop', 'hack', 'ban', 'regulation', 'bearish', 'negative', 'sell-off', 'fud',
+            'reject', 'fail', 'loss', 'down', 'lower', 'dump', 'scam', 'fraud', 'warning', 'restrict', 'tax',
+            'investigation', 'fine', 'lawsuit', 'volatile', 'panic', 'red'
+        ];
+
+        function analyzeSentiment(title, description = '') {
+            const text = (title + ' ' + description).toLowerCase();
+            let bullishScore = 0, bearishScore = 0;
+            bullishKeywords.forEach(w => { if (text.includes(w)) bullishScore++; });
+            bearishKeywords.forEach(w => { if (text.includes(w)) bearishScore++; });
+            let total = bullishScore + bearishScore;
+            if (total === 0) return { type: 'neutral', impact: 0, bullishPercent: 0, bearishPercent: 0 };
+            let bullishPercent = (bullishScore / total) * 100;
+            let bearishPercent = (bearishScore / total) * 100;
+            let type = bullishPercent > bearishPercent ? 'bullish' : (bearishPercent > bullishPercent ? 'bearish' : 'neutral');
+            let impact = Math.max(bullishPercent, bearishPercent);
+            return { type, impact: Math.round(impact), bullishPercent: Math.round(bullishPercent), bearishPercent: Math.round(bearishPercent) };
+        }
+
+        function updateOverallSentiment(newsArray) {
+            let totalBullish = 0, totalBearish = 0;
+            newsArray.forEach(n => {
+                totalBullish += n.sentiment.bullishPercent;
+                totalBearish += n.sentiment.bearishPercent;
+            });
+            const count = newsArray.length;
+            const avgBullish = count ? Math.round(totalBullish / count) : 0;
+            const avgBearish = count ? Math.round(totalBearish / count) : 0;
+            const bullishElem = document.getElementById('sidebarBullishPercent');
+            const bearishElem = document.getElementById('sidebarBearishPercent');
+            if (bullishElem) bullishElem.innerText = avgBullish + '%';
+            if (bearishElem) bearishElem.innerText = avgBearish + '%';
+        }
+
+        function translateNews(url) {
+            const translateUrl = `https://translate.google.com/translate?sl=auto&tl=auto&u=${encodeURIComponent(url)}`;
+            window.open(translateUrl, '_blank');
+        }
+
+        async function fetchSidebarNews() {
+            const container = document.getElementById('sidebarNewsList');
+            const spinner = document.getElementById('sidebarNewsSpinner');
+            if (spinner) spinner.style.display = 'inline-block';
+            if (container) container.innerHTML = 'Loading news...';
+            
+            try {
+                const url = `https://api.coingecko.com/api/v3/news?api_key=${API_KEY}`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data && data.data && data.data.length > 0) {
+                    allNews = data.data.slice(0, 8).map(article => {
+                        const sentiment = analyzeSentiment(article.title, article.description || '');
+                        return { ...article, sentiment };
+                    });
+                    if (container) {
+                        container.innerHTML = allNews.map(article => `
+                            <div class="news-item">
+                                <div class="news-title" onclick="window.open('${article.url}', '_blank')">${article.title || 'Crypto Update'}</div>
+                                <div class="news-meta">
+                                    <span>${article.source || 'Crypto News'} • ${new Date(article.published_at).toLocaleTimeString()}</span>
+                                    <div style="display: flex; gap: 6px; align-items: center;">
+                                        <span class="news-badge ${article.sentiment.type}">${article.sentiment.type.toUpperCase()} ${article.sentiment.impact}%</span>
+                                        <button class="translate-btn" onclick="event.stopPropagation(); translateNews('${article.url}')">🌐</button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                    updateOverallSentiment(allNews);
+                } else {
+                    if (container) container.innerHTML = 'No news available.';
+                }
+            } catch (error) {
+                console.error('Sidebar news error:', error);
+                if (container) container.innerHTML = 'Failed to load news.';
+            } finally {
+                if (spinner) spinner.style.display = 'none';
+            }
+        }
+        
+        fetchSidebarNews();
+        setInterval(fetchSidebarNews, 30000);
+    })();
+    </script>
+</div> <!-- end sidebar -->
               
            <!-- PATTERN ALERT BOX (NEW) -->
 <div id="patternAlertBox" style="background: linear-gradient(135deg, #0F1422, #1A1F33); border: 2px solid #F59E0B; border-radius: 20px; padding: 15px; margin-bottom: 20px; animation: slideIn 0.5s ease;">
