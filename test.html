@@ -4039,6 +4039,158 @@
                 </div>
             </div>
 
+            <!-- ==================== UNIFIED VOICE ON/OFF TOGGLE (PERSISTENT) ==================== -->
+<style>
+    #voiceToggleContainer {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        background: #0B0F1C;
+        border: 1px solid #3B82F6;
+        border-radius: 40px;
+        padding: 8px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        backdrop-filter: blur(8px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        font-size: 0.85rem;
+    }
+    #voiceToggleContainer .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 22px;
+    }
+    #voiceToggleContainer .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    #voiceToggleContainer .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #EF4444;
+        transition: 0.3s;
+        border-radius: 34px;
+    }
+    #voiceToggleContainer .slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+    #voiceToggleContainer input:checked + .slider {
+        background-color: #22C55E;
+    }
+    #voiceToggleContainer input:checked + .slider:before {
+        transform: translateX(22px);
+    }
+    #voiceToggleContainer .voice-label {
+        color: #E5E7EB;
+        font-weight: 500;
+    }
+    @media (max-width: 640px) {
+        #voiceToggleContainer {
+            bottom: 10px;
+            right: 10px;
+            padding: 4px 12px;
+            font-size: 0.7rem;
+        }
+    }
+</style>
+
+<div id="voiceToggleContainer">
+    <span class="voice-label"><i class="fas fa-volume-up"></i> Voice Alerts</span>
+    <label class="toggle-switch">
+        <input type="checkbox" id="globalVoiceToggle">
+        <span class="slider"></span>
+    </label>
+</div>
+
+<script>
+(function() {
+    const STORAGE_KEY = 'globalVoiceEnabled';
+    // Default: enabled (true)
+    let voiceEnabled = localStorage.getItem(STORAGE_KEY) !== 'false';
+    const toggleCheckbox = document.getElementById('globalVoiceToggle');
+    
+    function setVoiceEnabled(enabled) {
+        voiceEnabled = enabled;
+        localStorage.setItem(STORAGE_KEY, enabled);
+        if (toggleCheckbox) toggleCheckbox.checked = enabled;
+        if (!enabled && window.speechSynthesis) {
+            window.speechSynthesis.cancel(); // stop any ongoing speech
+        }
+    }
+    
+    if (toggleCheckbox) {
+        toggleCheckbox.checked = voiceEnabled;
+        toggleCheckbox.addEventListener('change', (e) => {
+            setVoiceEnabled(e.target.checked);
+        });
+    }
+    
+    // ========== HOOK INTO EXISTING SPEAK FUNCTIONS ==========
+    // We'll wait for the page to fully load and then override the speak functions
+    // that are defined inside the three components.
+    
+    function overrideSpeakFunctions() {
+        // 1. Pattern Alert Box's speak function (if any) – it uses speakAlert? Actually pattern box uses a different method.
+        // In the pattern alert code you provided, there is no speech; only the scalping and smart zones have speech.
+        // So we need to override speakMsg (scalping) and speakAlert (smart zones).
+        
+        // Override scalping's speakMsg
+        if (typeof window.speakMsg === 'undefined') {
+            // scalping uses a local function speakMsg inside its closure. We can't access it directly.
+            // Instead, we'll override the global SpeechSynthesis.speak conditionally.
+            // But that's messy. Better: we'll set a global flag and modify the scalping script to check it.
+            // However, to avoid changing original code, we can monkey-patch the window.speechSynthesis.speak method.
+            // This will affect all speech on the page, but that's acceptable because only our components use it.
+            const originalSpeak = window.speechSynthesis.speak.bind(window.speechSynthesis);
+            window.speechSynthesis.speak = function(utterance) {
+                if (voiceEnabled) {
+                    originalSpeak(utterance);
+                }
+            };
+        } else {
+            // If speakMsg is global, override it
+            const originalSpeakMsg = window.speakMsg;
+            window.speakMsg = function(msg, key) {
+                if (voiceEnabled) originalSpeakMsg(msg, key);
+            };
+        }
+        
+        // Override smart zones' speakAlert (if it became global)
+        if (typeof window.speakAlert !== 'undefined') {
+            const originalSpeakAlert = window.speakAlert;
+            window.speakAlert = function(msg, key) {
+                if (voiceEnabled) originalSpeakAlert(msg, key);
+            };
+        }
+        
+        // Also for scalping's inner speakMsg (we'll patch the SpeechSynthesis.speak as fallback)
+        // The above speechSynthesis patch already catches all speech.
+    }
+    
+    // Since the components are loaded after this script, we need to wait for them to initialize.
+    // We'll use MutationObserver or simple delay.
+    setTimeout(overrideSpeakFunctions, 3000);
+    
+    // Also, if any component defines a new speak function later, the speechSynthesis patch already covers it.
+})();
+</script>
+
            <!-- PATTERN ALERT BOX (NEW) -->
 <div id="patternAlertBox" style="background: linear-gradient(135deg, #0F1422, #1A1F33); border: 2px solid #F59E0B; border-radius: 20px; padding: 15px; margin-bottom: 20px; animation: slideIn 0.5s ease;">
     <div style="display: flex; align-items: center; gap: 12px;">
