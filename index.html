@@ -3993,100 +3993,96 @@
                 </div>
             </div> <!-- END OF ULTIMATE RECOMMENDATION BOX -->
 
-<!-- ==================== BREAKOUT & PULLBACK SIGNAL (INFOGRAPHIC STYLE) ==================== -->
+<!-- ==================== BREAKOUT & PULLBACK (TIMEFRAME AWARE) ==================== -->
 <style>
-    .bp-infographic {
+    .bp-container {
         background: #0B0F1C;
         border: 1px solid #2A3045;
-        border-radius: 24px;
-        padding: 20px;
+        border-radius: 20px;
+        padding: 18px;
         margin: 20px 0;
-        font-family: 'Inter', monospace;
     }
     .bp-header {
         display: flex;
         justify-content: space-between;
-        align-items: baseline;
+        align-items: center;
         margin-bottom: 15px;
+        border-bottom: 1px solid #2A3045;
+        padding-bottom: 10px;
         flex-wrap: wrap;
         gap: 8px;
     }
     .bp-header h3 {
-        color: #3B82F6;
-        font-size: 1.3rem;
+        color: #F59E0B;
+        font-size: 1.1rem;
         margin: 0;
         display: flex;
         align-items: center;
         gap: 8px;
     }
-    .bp-status-badge {
+    .bp-status {
+        font-size: 0.7rem;
         background: #1A1F33;
-        padding: 4px 12px;
-        border-radius: 30px;
-        font-size: 0.75rem;
-        color: #F59E0B;
+        padding: 4px 10px;
+        border-radius: 20px;
         font-family: monospace;
     }
-    .bp-canvas-container {
-        background: #03050A;
-        border-radius: 16px;
-        padding: 10px;
-        margin-bottom: 20px;
-        border: 1px solid #2A3045;
+    .bp-levels {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
     }
-    canvas {
-        width: 100%;
-        height: auto;
-        display: block;
-        border-radius: 12px;
-    }
-    .bp-signal-card {
+    .bp-level-card {
+        flex: 1;
         background: #1A1F33;
-        border-radius: 16px;
-        padding: 16px;
-        margin-bottom: 20px;
-        border-left: 4px solid;
-        transition: 0.2s;
+        border-radius: 14px;
+        padding: 10px;
+        text-align: center;
     }
-    .bp-signal-card.buy { border-left-color: #22C55E; background: rgba(34,197,94,0.05); }
-    .bp-signal-card.sell { border-left-color: #EF4444; background: rgba(239,68,68,0.05); }
-    .bp-signal-card.wait { border-left-color: #F59E0B; background: rgba(245,158,11,0.05); }
-    .bp-signal-title {
-        font-weight: 700;
+    .bp-level-label {
+        font-size: 0.7rem;
+        color: #94A3B8;
+    }
+    .bp-level-value {
         font-size: 1.1rem;
-        margin-bottom: 6px;
+        font-weight: 600;
+        margin-top: 5px;
+    }
+    .bp-level-value.support { color: #22C55E; }
+    .bp-level-value.resistance { color: #EF4444; }
+    .bp-level-break {
+        font-size: 0.7rem;
+        margin-top: 5px;
+        padding: 2px 6px;
+        border-radius: 12px;
+        display: inline-block;
+    }
+    .break-true { background: rgba(239,68,68,0.2); color: #EF4444; }
+    .break-false { background: rgba(34,197,94,0.2); color: #22C55E; }
+    .bp-signal {
+        background: #1A1F33;
+        border-radius: 14px;
+        padding: 12px;
+        margin-bottom: 15px;
+        border-left: 4px solid;
+    }
+    .bp-signal.buy { border-left-color: #22C55E; }
+    .bp-signal.sell { border-left-color: #EF4444; }
+    .bp-signal.wait { border-left-color: #F59E0B; }
+    .bp-signal-title {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 5px;
     }
     .bp-signal-details {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: #94A3B8;
         display: flex;
         flex-wrap: wrap;
         gap: 12px;
-        margin-top: 6px;
+        margin-top: 5px;
     }
-    .bp-legend {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin: 15px 0;
-        flex-wrap: wrap;
-    }
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 0.7rem;
-        color: #94A3B8;
-    }
-    .legend-color {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-    }
-    .legend-color.support { background: #22C55E; }
-    .legend-color.resistance { background: #EF4444; }
-    .legend-color.breakout { background: #F59E0B; }
-    .legend-color.pullback { background: #8B5CF6; }
     .bp-history {
         max-height: 200px;
         overflow-y: auto;
@@ -4094,7 +4090,7 @@
         margin-top: 12px;
         padding-top: 10px;
     }
-    .history-item {
+    .bp-history-item {
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -4104,288 +4100,243 @@
     }
     .history-type.buy { color: #22C55E; }
     .history-type.sell { color: #EF4444; }
-    .history-conf { font-weight: 600; color: #F59E0B; }
-    .footer-note {
-        font-size: 0.7rem;
-        color: #6B7280;
-        text-align: center;
-        margin-top: 12px;
-        border-top: 1px solid #2A3045;
-        padding-top: 10px;
-    }
+    .history-confidence { font-weight: 600; }
+    .history-success { color: #22C55E; }
+    .history-fail { color: #EF4444; }
 </style>
 
-<div class="bp-infographic" id="bpInfographic">
+<div class="bp-container" id="bpContainer">
     <div class="bp-header">
         <h3><i class="fas fa-chart-line"></i> Breakout & Pullback Entry</h3>
-        <span class="bp-status-badge" id="bpStatusBadge">Monitoring</span>
+        <span class="bp-status" id="bpTimeframeLabel">5m</span>
     </div>
-    <div class="bp-canvas-container">
-        <canvas id="bpStrategyCanvas" width="800" height="300" style="width:100%; height:auto; max-width:800px; aspect-ratio:800/300"></canvas>
+    <div class="bp-levels">
+        <div class="bp-level-card">
+            <div class="bp-level-label">🟢 SUPPORT ZONE</div>
+            <div class="bp-level-value support" id="bpSupportValue">--</div>
+            <div class="bp-level-break" id="bpSupportBreakStatus">Waiting</div>
+        </div>
+        <div class="bp-level-card">
+            <div class="bp-level-label">🔴 RESISTANCE ZONE</div>
+            <div class="bp-level-value resistance" id="bpResistanceValue">--</div>
+            <div class="bp-level-break" id="bpResistanceBreakStatus">Waiting</div>
+        </div>
     </div>
-    <div class="bp-legend">
-        <div class="legend-item"><div class="legend-color support"></div> Support</div>
-        <div class="legend-item"><div class="legend-color resistance"></div> Resistance</div>
-        <div class="legend-item"><div class="legend-color breakout"></div> Breakout</div>
-        <div class="legend-item"><div class="legend-color pullback"></div> Pullback Entry</div>
-        <div class="legend-item"><div class="legend-color" style="background:#22C55E;"></div> Buy Signal</div>
-        <div class="legend-item"><div class="legend-color" style="background:#EF4444;"></div> Sell Signal</div>
-    </div>
-    <div id="bpSignalCard" class="bp-signal-card wait">
-        <div class="bp-signal-title">⏳ Waiting for Breakout</div>
-        <div class="bp-signal-details">No active signal – monitoring critical support/resistance levels</div>
+    <div id="bpSignalArea">
+        <div class="bp-signal wait">
+            <div class="bp-signal-title">⏳ No active signal</div>
+            <div class="bp-signal-details">Waiting for breakout & pullback</div>
+        </div>
     </div>
     <div class="bp-history">
         <div style="font-size:0.7rem; color:#3B82F6; margin-bottom:5px;">📜 Previous Breakout History</div>
-        <div id="bpHistoryList">Loading history...</div>
-    </div>
-    <div class="footer-note">
-        🔥 High confidence (85%+) + pullback confirmation → 99% win rate potential
+        <div id="bpHistoryList">Loading...</div>
     </div>
 </div>
 
 <script>
-    (function() {
-        // ---------- DRAW STATIC INFOGRAPHIC ON CANVAS ----------
-        const canvas = document.getElementById('bpStrategyCanvas');
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            const w = canvas.width = 800;
-            const h = canvas.height = 300;
-            
-            ctx.fillStyle = '#03050A';
-            ctx.fillRect(0, 0, w, h);
-            
-            // Grid lines
-            ctx.strokeStyle = '#1A1F33';
-            ctx.lineWidth = 0.5;
-            for (let i = 0; i < 4; i++) {
-                let y = 60 + i * 70;
-                ctx.beginPath();
-                ctx.moveTo(40, y);
-                ctx.lineTo(w - 40, y);
-                ctx.stroke();
-            }
-            
-            // Price line (breakout + pullback pattern)
-            const points = [
-                { x: 60, y: 220 }, { x: 120, y: 200 }, { x: 180, y: 210 },
-                { x: 240, y: 180 }, { x: 300, y: 180 }, { x: 360, y: 140 }, // breakout up
-                { x: 420, y: 180 }, // pullback
-                { x: 480, y: 150 }, { x: 540, y: 140 }, { x: 600, y: 120 },
-                { x: 660, y: 130 }, { x: 720, y: 110 }
-            ];
-            ctx.beginPath();
-            ctx.moveTo(points[0].x, points[0].y);
-            for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-            ctx.strokeStyle = '#3B82F6';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            
-            // Resistance line (horizontal)
-            const resistanceY = 180;
-            ctx.beginPath();
-            ctx.moveTo(40, resistanceY);
-            ctx.lineTo(w - 40, resistanceY);
-            ctx.strokeStyle = '#EF4444';
-            ctx.setLineDash([6, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = '#EF4444';
-            ctx.font = 'bold 10px monospace';
-            ctx.fillText('RESISTANCE', w - 100, resistanceY - 5);
-            
-            // Support line
-            const supportY = 220;
-            ctx.beginPath();
-            ctx.moveTo(40, supportY);
-            ctx.lineTo(w - 40, supportY);
-            ctx.strokeStyle = '#22C55E';
-            ctx.setLineDash([6, 4]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            ctx.fillStyle = '#22C55E';
-            ctx.fillText('SUPPORT', w - 100, supportY + 10);
-            
-            // Highlight breakout zone
-            ctx.fillStyle = 'rgba(245,158,11,0.2)';
-            ctx.fillRect(330, 140, 70, 40);
-            ctx.fillStyle = '#F59E0B';
-            ctx.font = 'bold 10px monospace';
-            ctx.fillText('BREAKOUT', 340, 165);
-            
-            // Highlight pullback zone
-            ctx.fillStyle = 'rgba(139,92,246,0.2)';
-            ctx.fillRect(390, 170, 70, 30);
-            ctx.fillStyle = '#8B5CF6';
-            ctx.fillText('PULLBACK', 400, 190);
-            
-            // Buy arrow
-            ctx.beginPath();
-            ctx.moveTo(470, 185);
-            ctx.lineTo(480, 170);
-            ctx.lineTo(490, 185);
-            ctx.fillStyle = '#22C55E';
-            ctx.fill();
-            ctx.fillStyle = '#22C55E';
-            ctx.fillText('BUY', 475, 160);
-            
-            // Annotations
-            ctx.fillStyle = '#E5E7EB';
-            ctx.font = '10px "Inter"';
-            ctx.fillText('① Breakout above resistance', 50, 30);
-            ctx.fillText('② Pullback retest resistance', 50, 50);
-            ctx.fillText('③ Enter LONG on confirmation', 50, 70);
-            ctx.fillStyle = '#94A3B8';
-            ctx.font = 'italic 9px monospace';
-            ctx.fillText('Same logic for support break → SHORT on pullback', 50, h - 15);
-        }
-        
-        // ---------- LIVE SIGNAL LOGIC (same as before, integrated) ----------
-        const HISTORY_KEY = 'breakoutPullbackHistory';
-        let history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
-        let activeBreakout = null;
-        let waitingForPullback = false;
-        
-        function saveHistory() {
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
-            updateHistoryUI();
-        }
-        
-        function addHistory(type, level, breakoutPrice, confidence, success = null, pullbackPrice = null) {
-            history.unshift({
-                type, level, breakoutPrice, confidence, success, pullbackPrice,
-                timestamp: new Date().toISOString()
-            });
-            if (history.length > 20) history.pop();
-            saveHistory();
-        }
-        
-        function updateHistoryUI() {
-            const container = document.getElementById('bpHistoryList');
-            if (!container) return;
-            if (history.length === 0) {
-                container.innerHTML = '<div style="color:#6B7280; text-align:center;">No history yet</div>';
-                return;
-            }
-            container.innerHTML = history.map(entry => {
-                const date = new Date(entry.timestamp).toLocaleString();
-                const typeText = entry.type === 'supportBreak' ? '🔴 Support Break' : '🟢 Resistance Break';
-                const typeClass = entry.type === 'supportBreak' ? 'sell' : 'buy';
-                const status = entry.success === true ? '✓ Win' : (entry.success === false ? '✗ Loss' : 'Pending');
-                return `
-                    <div class="history-item">
-                        <div><span class="history-type ${typeClass}">${typeText}</span><br><span style="font-size:0.6rem;">${date}</span></div>
-                        <div>Level: $${entry.level.toFixed(2)}<br>Conf: ${entry.confidence}%</div>
-                        <div>${status}</div>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        function getCriticalLevels() {
-            let supportLevel = null, resistanceLevel = null;
-            let supportConf = 0, resistanceConf = 0;
-            const buyZones = document.querySelectorAll('#buyZonesList .zone-item');
-            const sellZones = document.querySelectorAll('#sellZonesList .zone-item');
-            if (buyZones.length) {
-                const first = buyZones[0];
-                const priceSpan = first.querySelector('.zone-level span:first-child')?.innerText;
-                if (priceSpan) {
-                    let match = priceSpan.match(/\$([0-9,]+)/);
-                    if (match) supportLevel = parseFloat(match[1].replace(/,/g, ''));
-                }
-                const scoreSpan = first.querySelector('.zone-score');
-                if (scoreSpan) {
-                    let sc = scoreSpan.innerText.match(/(\d+)%/);
-                    if (sc) supportConf = parseInt(sc[1]);
-                }
-            }
-            if (sellZones.length) {
-                const first = sellZones[0];
-                const priceSpan = first.querySelector('.zone-level span:first-child')?.innerText;
-                if (priceSpan) {
-                    let match = priceSpan.match(/\$([0-9,]+)/);
-                    if (match) resistanceLevel = parseFloat(match[1].replace(/,/g, ''));
-                }
-                const scoreSpan = first.querySelector('.zone-score');
-                if (scoreSpan) {
-                    let sc = scoreSpan.innerText.match(/(\d+)%/);
-                    if (sc) resistanceConf = parseInt(sc[1]);
-                }
-            }
-            return { supportLevel, supportConf, resistanceLevel, resistanceConf };
-        }
-        
-        function updateSignalUI(action, level, price, confidence, detail) {
-            const card = document.getElementById('bpSignalCard');
-            if (action === 'BUY') {
-                card.className = 'bp-signal-card buy';
-                card.innerHTML = `
-                    <div class="bp-signal-title">🟢 BUY SIGNAL (Pullback Entry)</div>
-                    <div class="bp-signal-details">Entry: $${price.toFixed(2)} | Target: $${(level * 1.02).toFixed(2)} | Stop: $${(level * 0.99).toFixed(2)}<br>Confidence: ${confidence}% | ${detail}</div>
-                `;
-                if (typeof showNotification === 'function') showNotification(`BUY Signal at $${price.toFixed(2)}`, 'success');
-            } else if (action === 'SELL') {
-                card.className = 'bp-signal-card sell';
-                card.innerHTML = `
-                    <div class="bp-signal-title">🔴 SELL SIGNAL (Pullback Entry)</div>
-                    <div class="bp-signal-details">Entry: $${price.toFixed(2)} | Target: $${(level * 0.98).toFixed(2)} | Stop: $${(level * 1.01).toFixed(2)}<br>Confidence: ${confidence}% | ${detail}</div>
-                `;
-                if (typeof showNotification === 'function') showNotification(`SELL Signal at $${price.toFixed(2)}`, 'error');
-            } else {
-                card.className = 'bp-signal-card wait';
-                card.innerHTML = `<div class="bp-signal-title">⏳ ${detail}</div><div class="bp-signal-details">Breakout at $${level.toFixed(2)} (Confidence ${confidence}%)<br>Current price: $${price.toFixed(2)} - Waiting for retest.</div>`;
-            }
-            document.getElementById('bpStatusBadge').innerText = action === 'BUY' ? 'BUY READY' : (action === 'SELL' ? 'SELL READY' : 'Monitoring');
-        }
-        
-        async function checkBreakoutPullback() {
-            let price = (typeof currentPrice !== 'undefined') ? currentPrice : window.currentPrice;
-            if (!price) return;
-            const { supportLevel, supportConf, resistanceLevel, resistanceConf } = getCriticalLevels();
-            if (!supportLevel && !resistanceLevel) return;
-            
-            if (waitingForPullback && activeBreakout) {
-                const { type, level, breakoutPrice, confidence } = activeBreakout;
-                const tolerance = 0.001;
-                if (type === 'supportBreak' && Math.abs(price - level) / level < tolerance && price > breakoutPrice) {
-                    waitingForPullback = false;
-                    addHistory(type, level, breakoutPrice, confidence, null);
-                    updateSignalUI('SELL', level, price, confidence, 'Support break pullback confirmed');
-                    activeBreakout = null;
-                } else if (type === 'resistanceBreak' && Math.abs(price - level) / level < tolerance && price < breakoutPrice) {
-                    waitingForPullback = false;
-                    addHistory(type, level, breakoutPrice, confidence, null);
-                    updateSignalUI('BUY', level, price, confidence, 'Resistance break pullback confirmed');
-                    activeBreakout = null;
-                } else if (Date.now() - activeBreakout.breakoutTime > 300000) {
-                    waitingForPullback = false;
-                    addHistory(type, level, breakoutPrice, confidence, false);
-                    activeBreakout = null;
-                    updateSignalUI('WAIT', level, price, confidence, 'Breakout failed (timeout)');
-                    setTimeout(() => updateSignalUI('WAIT', 0, 0, 0, 'Monitoring...'), 3000);
-                }
-                return;
-            }
-            
-            if (supportLevel && price < supportLevel && !activeBreakout && !waitingForPullback) {
-                activeBreakout = { type: 'supportBreak', level: supportLevel, breakoutPrice: price, breakoutTime: Date.now(), confidence: supportConf };
-                waitingForPullback = true;
-                updateSignalUI('WAIT', supportLevel, price, supportConf, 'Support broken. Awaiting pullback retest.');
-            } else if (resistanceLevel && price > resistanceLevel && !activeBreakout && !waitingForPullback) {
-                activeBreakout = { type: 'resistanceBreak', level: resistanceLevel, breakoutPrice: price, breakoutTime: Date.now(), confidence: resistanceConf };
-                waitingForPullback = true;
-                updateSignalUI('WAIT', resistanceLevel, price, resistanceConf, 'Resistance broken. Awaiting pullback retest.');
-            }
-        }
-        
-        setInterval(checkBreakoutPullback, 5000);
+(function() {
+    // ---------- Persistent history ----------
+    const HISTORY_KEY = 'breakoutPullbackHistory';
+    let history = JSON.parse(localStorage.getItem(HISTORY_KEY)) || [];
+    function saveHistory() {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 20)));
+    }
+    function addHistory(type, level, breakoutPrice, confidence, success = null) {
+        history.unshift({ type, level, breakoutPrice, confidence, success, timestamp: new Date().toISOString() });
+        if (history.length > 20) history.pop();
+        saveHistory();
         updateHistoryUI();
-        if (typeof window.addEventListener === 'function') {
-            window.addEventListener('load', () => setTimeout(checkBreakoutPullback, 1000));
+    }
+    function updateHistoryUI() {
+        const container = document.getElementById('bpHistoryList');
+        if (!container) return;
+        if (history.length === 0) { container.innerHTML = '<div style="color:#6B7280;">No history</div>'; return; }
+        container.innerHTML = history.map(entry => {
+            const date = new Date(entry.timestamp).toLocaleString();
+            const typeText = entry.type === 'support' ? '🔴 Support Break' : '🟢 Resistance Break';
+            const typeClass = entry.type === 'support' ? 'sell' : 'buy';
+            const status = entry.success === true ? '<span class="history-success">✓ Success</span>' : 
+                          (entry.success === false ? '<span class="history-fail">✗ Fail</span>' : '<span>Pending</span>');
+            return `<div class="bp-history-item">
+                <div><span class="history-type ${typeClass}">${typeText}</span><br><span style="font-size:0.6rem;">${date}</span></div>
+                <div>Level: $${entry.level.toFixed(2)}<br>Conf: ${entry.confidence}%</div>
+                <div>${status}</div>
+            </div>`;
+        }).join('');
+    }
+
+    // Get current support/resistance from Smart Zones UI
+    function getSmartZones() {
+        const buyZones = document.querySelectorAll('#buyZonesList .zone-item');
+        const sellZones = document.querySelectorAll('#sellZonesList .zone-item');
+        let support = null, supportConf = 0;
+        let resistance = null, resistanceConf = 0;
+        if (buyZones.length > 0) {
+            const first = buyZones[0];
+            const priceSpan = first.querySelector('.zone-level span:first-child');
+            if (priceSpan) {
+                const match = priceSpan.innerText.match(/\$([0-9,]+)/);
+                if (match) support = parseFloat(match[1].replace(/,/g, ''));
+            }
+            const scoreSpan = first.querySelector('.zone-score');
+            if (scoreSpan) {
+                const sc = scoreSpan.innerText.match(/(\d+)%/);
+                if (sc) supportConf = parseInt(sc[1]);
+            }
         }
-    })();
+        if (sellZones.length > 0) {
+            const first = sellZones[0];
+            const priceSpan = first.querySelector('.zone-level span:first-child');
+            if (priceSpan) {
+                const match = priceSpan.innerText.match(/\$([0-9,]+)/);
+                if (match) resistance = parseFloat(match[1].replace(/,/g, ''));
+            }
+            const scoreSpan = first.querySelector('.zone-score');
+            if (scoreSpan) {
+                const sc = scoreSpan.innerText.match(/(\d+)%/);
+                if (sc) resistanceConf = parseInt(sc[1]);
+            }
+        }
+        return { support, supportConf, resistance, resistanceConf };
+    }
+
+    // State
+    let activeBreakout = null;   // { type, level, breakoutPrice, breakoutTime, confidence }
+    let waitingForPullback = false;
+    let currentPrice = 0;
+
+    // Update UI levels
+    function updateLevelsUI() {
+        const { support, supportConf, resistance, resistanceConf } = getSmartZones();
+        const supportElem = document.getElementById('bpSupportValue');
+        const resistanceElem = document.getElementById('bpResistanceValue');
+        if (support) supportElem.innerText = `$${support.toFixed(2)} (${supportConf}%)`;
+        else supportElem.innerText = '--';
+        if (resistance) resistanceElem.innerText = `$${resistance.toFixed(2)} (${resistanceConf}%)`;
+        else resistanceElem.innerText = '--';
+        
+        // Also show breakout status (if price has broken)
+        const price = (typeof window.currentPrice !== 'undefined') ? window.currentPrice : 0;
+        if (support && price < support) {
+            document.getElementById('bpSupportBreakStatus').innerHTML = '🔴 BROKEN (below)';
+            document.getElementById('bpSupportBreakStatus').className = 'bp-level-break break-true';
+        } else {
+            document.getElementById('bpSupportBreakStatus').innerHTML = '🟢 Holding';
+            document.getElementById('bpSupportBreakStatus').className = 'bp-level-break break-false';
+        }
+        if (resistance && price > resistance) {
+            document.getElementById('bpResistanceBreakStatus').innerHTML = '🟢 BROKEN (above)';
+            document.getElementById('bpResistanceBreakStatus').className = 'bp-level-break break-true';
+        } else {
+            document.getElementById('bpResistanceBreakStatus').innerHTML = '🔴 Holding';
+            document.getElementById('bpResistanceBreakStatus').className = 'bp-level-break break-false';
+        }
+    }
+
+    function showSignal(action, level, entryPrice, confidence, detail) {
+        const signalArea = document.getElementById('bpSignalArea');
+        let signalClass = 'wait';
+        let title = '';
+        let detailsHtml = '';
+        if (action === 'BUY') {
+            signalClass = 'buy';
+            title = '🟢 BUY SIGNAL (Pullback Entry)';
+            detailsHtml = `Entry: $${entryPrice.toFixed(2)} | Target: $${(level * 1.02).toFixed(2)} | Stop: $${(level * 0.99).toFixed(2)}<br>Confidence: ${confidence}% | ${detail}`;
+        } else if (action === 'SELL') {
+            signalClass = 'sell';
+            title = '🔴 SELL SIGNAL (Pullback Entry)';
+            detailsHtml = `Entry: $${entryPrice.toFixed(2)} | Target: $${(level * 0.98).toFixed(2)} | Stop: $${(level * 1.01).toFixed(2)}<br>Confidence: ${confidence}% | ${detail}`;
+        } else {
+            title = '⏳ PULLBACK PENDING';
+            detailsHtml = `Breakout at $${level.toFixed(2)} (Confidence ${confidence}%)<br>Current price: $${entryPrice.toFixed(2)} - Waiting for retest.`;
+        }
+        signalArea.innerHTML = `<div class="bp-signal ${signalClass}"><div class="bp-signal-title">${title}</div><div class="bp-signal-details">${detailsHtml}</div></div>`;
+        if (action !== 'WAITING') {
+            if (typeof showNotification === 'function') showNotification(`${action} Signal: Pullback entry at $${entryPrice.toFixed(2)}`, action === 'BUY' ? 'success' : 'error');
+            if (typeof audioAlertsEnabled !== 'undefined' && audioAlertsEnabled) {
+                const utterance = new SpeechSynthesisUtterance(`${action} signal. Pullback entry at ${entryPrice.toFixed(2)}.`);
+                utterance.rate = 0.8;
+                window.speechSynthesis.cancel();
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+    }
+
+    function checkBreakoutPullback() {
+        const price = (typeof window.currentPrice !== 'undefined') ? window.currentPrice : 0;
+        if (!price) return;
+        currentPrice = price;
+        const { support, supportConf, resistance, resistanceConf } = getSmartZones();
+        updateLevelsUI();
+
+        // If waiting for pullback
+        if (waitingForPullback && activeBreakout) {
+            const { type, level, breakoutPrice, confidence } = activeBreakout;
+            const tolerance = 0.001;
+            if (type === 'support') {
+                if (Math.abs(price - level) / level < tolerance && price > breakoutPrice) {
+                    waitingForPullback = false;
+                    addHistory('support', level, breakoutPrice, confidence, true);
+                    showSignal('SELL', level, price, confidence, 'Support break pullback confirmed');
+                    activeBreakout = null;
+                }
+            } else if (type === 'resistance') {
+                if (Math.abs(price - level) / level < tolerance && price < breakoutPrice) {
+                    waitingForPullback = false;
+                    addHistory('resistance', level, breakoutPrice, confidence, true);
+                    showSignal('BUY', level, price, confidence, 'Resistance break pullback confirmed');
+                    activeBreakout = null;
+                }
+            }
+            if (activeBreakout && (Date.now() - activeBreakout.breakoutTime) > 300000) {
+                waitingForPullback = false;
+                addHistory(activeBreakout.type, activeBreakout.level, activeBreakout.breakoutPrice, activeBreakout.confidence, false);
+                activeBreakout = null;
+                showSignal('WAITING', 0, price, 0, 'Breakout failed (timeout)');
+            }
+            return;
+        }
+
+        // Detect new breakout
+        if (support && price < support && !activeBreakout && !waitingForPullback) {
+            activeBreakout = { type: 'support', level: support, breakoutPrice: price, breakoutTime: Date.now(), confidence: supportConf };
+            waitingForPullback = true;
+            showSignal('WAITING', support, price, supportConf, 'Support broken. Awaiting pullback.');
+        } else if (resistance && price > resistance && !activeBreakout && !waitingForPullback) {
+            activeBreakout = { type: 'resistance', level: resistance, breakoutPrice: price, breakoutTime: Date.now(), confidence: resistanceConf };
+            waitingForPullback = true;
+            showSignal('WAITING', resistance, price, resistanceConf, 'Resistance broken. Awaiting pullback.');
+        }
+    }
+
+    // Listen to timeframe button clicks and update label
+    function attachTimeframeListener() {
+        const buttons = document.querySelectorAll('.timeframe-btn');
+        if (!buttons.length) return;
+        function updateLabel() {
+            const active = document.querySelector('.timeframe-btn.active');
+            const tf = active ? active.dataset.timeframe : '5';
+            let label = tf === '1' ? '1m' : tf === '5' ? '5m' : tf === '15' ? '15m' : tf === '60' ? '1h' : tf === '240' ? '4h' : '1D';
+            document.getElementById('bpTimeframeLabel').innerText = label;
+            // Reset breakout state when timeframe changes
+            activeBreakout = null;
+            waitingForPullback = false;
+            updateLevelsUI();
+            checkBreakoutPullback();
+        }
+        buttons.forEach(btn => btn.addEventListener('click', () => setTimeout(updateLabel, 200)));
+        updateLabel();
+    }
+
+    // Run periodically
+    setInterval(checkBreakoutPullback, 3000);
+    window.addEventListener('load', () => {
+        attachTimeframeListener();
+        updateHistoryUI();
+        setTimeout(checkBreakoutPullback, 500);
+    });
+})();
 </script>
     
             <!-- LIVE SIGNALS -->
